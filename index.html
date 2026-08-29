@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f4f1ea">
+<title>الملف المهني التراكمي | قاعدة الوثائق التربوية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ======== ولوج التطبيق ======== -->
+<section class="auth" id="authView" hidden>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-mark" id="authBrandMark"></div>
+      <div style="display:grid;gap:12px;">
+        <h1 class="h-display">الملف المهني<br>التراكمي</h1>
+        <p class="lede">قاعدة بياناتك الشخصية للوثائق التربوية: مكان محفوظ لكل مستند، جاهز للعرض أمام المفتش(ة) في أي وقت.</p>
+      </div>
+      <ul id="authSections"></ul>
+      <footer>وثيقة ديناميكية تخضع باستمرار للتعديل والتحيين، وفق ملاحظات السيد(ة) المفتش(ة) ومقترحات الزملاء.</footer>
+    </div>
+    <div class="auth-form">
+      <div style="display:grid;gap:6px;">
+        <h2 class="h2">ولوج التطبيق</h2>
+        <p class="hint">سجّل دخولك أو أنشئ حسابك الجديد للمتابعة.</p>
+      </div>
+      <div id="clerkAuthMount" dir="ltr"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ======== هيكل التطبيق ======== -->
+<div class="app" id="appView" hidden>
+  <header class="topbar">
+    <button class="btn btn-ghost btn-icon menu-btn" id="menuBtn" aria-label="فتح قائمة الأقسام"></button>
+    <a href="#/d" class="brand-lockup" aria-label="لوحة القيادة">
+      <span class="brand-mark" id="topBrandMark"></span>
+      <div>الملف المهني التراكمي<small id="topUserMeta">الفلسفة، الثانوي التأهيلي</small></div>
+    </a>
+    <div class="search-wrap" id="searchWrap">
+      <span class="search-icon" id="searchIcon"></span>
+      <input class="input" type="search" id="globalSearch" placeholder="ابحث في العناصر والمستندات…" role="combobox" aria-expanded="false" aria-controls="searchResults" autocomplete="off">
+      <div class="search-results" id="searchResults" role="listbox" hidden></div>
+    </div>
+    <div class="topbar-spacer"></div>
+    <button class="btn btn-primary btn-sm" id="importBtn"><span class="ic-slot"></span><span class="btn-label">رفع مستند</span></button>
+    <div style="position:relative;" id="notifWrap">
+      <button class="btn btn-ghost btn-icon" id="notifBtn" aria-label="الإشعارات" aria-haspopup="true"></button>
+      <span class="badge num" id="notifBadge">2</span>
+      <div class="notif-pop" id="notifPop" hidden>
+        <div class="pop-head">الإشعارات</div>
+        <ul>
+          <li>تقرير اكتمال الملف لهذا الشهر جاهز للتصدير.<time>اليوم</time></li>
+          <li>تمت مزامنة النسخة الاحتياطية بنجاح.<time>أمس، 21:40</time></li>
+        </ul>
+        <div class="pop-foot"><button class="btn btn-ghost btn-sm" id="notifAll" style="width:100%;">عرض كل الإشعارات</button></div>
+      </div>
+    </div>
+    <div style="position:relative;" id="userWrap">
+      <div id="userButtonMount" dir="ltr"></div>
+    </div>
+  </header>
+
+  <aside class="sidebar" id="sidebar" aria-label="شجرة الأقسام والمحاور">
+    <nav id="treeNav"></nav>
+  </aside>
+  <div class="backdrop" id="mobileBackdrop" hidden></div>
+
+  <main class="main" id="main" tabindex="-1"></main>
+</div>
+
+<!-- ======== الدرج الجانبي (مستند / رفع) ======== -->
+<div id="drawerRoot" hidden>
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true">
+    <header class="drawer-head">
+      <span class="d-title" id="drawerTitle">مستند</span>
+      <button class="btn btn-ghost btn-icon" id="drawerClose" aria-label="إغلاق"></button>
+    </header>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script src="js/data.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

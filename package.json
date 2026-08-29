@@ -1,0 +1,17 @@
+{
+  "name": "mihafazati",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mihafazati — Arabic-first RTL portfolio archive for Moroccan philosophy teachers (vanilla JS + Clerk + Supabase)",
+  "scripts": {
+    "serve": "npx serve .",
+    "test": "node --test \"tests/unit/**/*.test.js\"",
+    "test:watch": "node --test --watch \"tests/unit/**/*.test.js\"",
+    "e2e": "playwright test tests/e2e/"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "happy-dom": "^15.11.7"
+  }
+}

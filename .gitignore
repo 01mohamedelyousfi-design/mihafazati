@@ -1,0 +1,16 @@
+# Secrets and env files — service keys stay out of the repo entirely
+.env*
+scripts/.env.local
+!scripts/.env.example
+*.key
+
+# Dependencies
+node_modules/
+
+# Playwright artifacts
+test-results/
+playwright-report/
+blob-report/
+
+# Agent folders may hold credentials (per specify init security notice)
+.opencode/credentials*
