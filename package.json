@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Mihafazati — Arabic-first RTL portfolio archive for Moroccan philosophy teachers (vanilla JS + Clerk + Supabase)",
   "scripts": {
+    "build": "node scripts/build-data.mjs",
     "serve": "npx serve .",
     "test": "node --test \"tests/unit/**/*.test.js\"",
     "test:watch": "node --test --watch \"tests/unit/**/*.test.js\"",
