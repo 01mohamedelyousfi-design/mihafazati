@@ -48,9 +48,15 @@ describe('Taxonomy Architecture Contract (الملف التراكمي)', () => {
     ]);
   });
 
-  it('defines 23 elements across all axes', () => {
+  it('defines 25 elements across all axes', () => {
+    // +2 from splitting didaktiki.taqwim.asalib into tashkhisi/takwini/jazai
     const elementIds = Array.from(sandbox.TAXONOMY.flatMap(s => s.axes.flatMap(a => a.elements.map(e => e.id))));
-    assert.equal(elementIds.length, 23);
+    assert.equal(elementIds.length, 25);
+    // Verify new taqwim sub-elements exist
+    assert.ok(elementIds.includes('didaktiki.taqwim.tashkhisi'), 'tashkhisi element must exist');
+    assert.ok(elementIds.includes('didaktiki.taqwim.takwini'),   'takwini element must exist');
+    assert.ok(elementIds.includes('didaktiki.taqwim.jazai'),     'jazai element must exist');
+    assert.ok(!elementIds.includes('didaktiki.taqwim.asalib'),   'old asalib element must be gone');
   });
 
   it('contains 206 canonical platform fiches from the master archive', () => {
