@@ -10,6 +10,7 @@ const ICON_PATHS = {
   upload: '<path d="M4 20h16"/><path d="M12 16V5"/><path d="m7.5 9.5 4.5-4.5 4.5 4.5"/>',
   download: '<path d="M4 20h16"/><path d="M12 5v11"/><path d="m7.5 11.5 4.5 4.5 4.5-4.5"/>',
   folder: '<path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2h8A1.5 1.5 0 0 1 20.5 9v8A1.5 1.5 0 0 1 19 18.5H5A1.5 1.5 0 0 1 3.5 17Z"/>',
+  folderOpen: '<path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2h8A1.5 1.5 0 0 1 20.5 9v1.5H3.5V7Z"/><path d="M3.5 10.5h17l-2 8H5.5l-2-8Z"/>',
   chevDown: '<path d="m6 9 6 6 6-6"/>',
   chevLeft: '<path d="m14 6-6 6 6 6"/>',
   x: '<path d="m6 6 12 12"/><path d="M18 6 6 18"/>',
@@ -32,11 +33,12 @@ const ICON_PATHS = {
   layers: '<path d="m12 3 9 5-9 5-9-5Z"/><path d="m3 13 9 5 9-5"/>',
   book: '<path d="M4 19.5V5a2 2 0 0 1 2-2h14v16H6a2 2 0 0 0-2 2Z"/><path d="M8 7.5h8"/>',
   award: '<circle cx="12" cy="9" r="5"/><path d="M8.8 13.5 7 21l5-2.6L17 21l-1.8-7.5"/>',
-  pen: '<path d="m4 20 4.5-1L19.5 8a2.1 2.1 0 0 0-3-3L5.5 16Z"/><path d="m14 6.5 3 3"/>'
+  pen: '<path d="m4 20 4.5-1L19.5 8a2.1 2.1 0 0 0-3-3L5.5 16Z"/><path d="m14 6.5 3 3"/>',
+  sparkle: '<path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/>'
 };
 
 function ic(name, size = 20, sw = 1.7) {
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ICON_PATHS.fileText}</svg>`;
 }
 
 function brandMark(size = 36) {
@@ -47,10 +49,11 @@ const SECTION_ICONS = ["shield", "book", "award"];
 
 const state = {
   user: null,
-  expandedSections: new Set([0]),
+  expandedSections: new Set([0, 1]),
   expandedAxes: new Set(),
   uploadCtx: null,
   currentFileKey: null,
+  currentLevelFilter: "all",
   lastFocus: null,
   notifCount: 2
 };
@@ -70,6 +73,7 @@ function toast(message, type = "success") {
 }
 
 function fileById(key) { return FILES.find(f => f.key === key); }
+function platformFicheById(id) { return PLATFORM_FICHES.find(f => f.id === id); }
 
 function resolveSlot(key) {
   const [si, ai, ei, qi] = key.split(".").map(Number);
@@ -90,21 +94,30 @@ function filesOfElement(si, ai, ei) {
 function elementCounts(si, ai, ei) {
   const total = TAXONOMY[si].axes[ai].elements[ei].slots.length;
   const filled = filesOfElement(si, ai, ei).length;
-  return { total, filled };
+  const platformCount = platformFichesOfElement(si, ai, ei).length;
+  return { total, filled, platformCount };
 }
 
 function overallTotals() {
-  let total = 0, filled = 0;
+  let total = 0, filled = 0, platformTotal = PLATFORM_FICHES.length;
   TAXONOMY.forEach((_, si) => {
     const t = sectionTotals(si);
     total += t.total;
     filled += t.filled;
   });
-  return { total, filled };
+  return { total, filled, platformTotal };
 }
 
 function esc(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function levelBadge(level) {
+  if (!level) return "";
+  let cls = "badge-tc";
+  if (level.includes("1BAC") || level.includes("أولى")) cls = "badge-1bac";
+  else if (level.includes("2BAC") || level.includes("ثانية")) cls = "badge-2bac";
+  return `<span class="badge-level ${cls}">${esc(level)}</span>`;
 }
 
 /* ---------- Drawer ---------- */
@@ -144,7 +157,7 @@ document.addEventListener("keydown", e => {
   }
 });
 
-/* ---------- File drawer ---------- */
+/* ---------- File Drawers ---------- */
 
 function familyIcon(name) {
   const fam = fileFamily(name);
@@ -172,32 +185,35 @@ function openFileDrawer(key) {
       <div class="fh-icon">${ic(familyIcon(f.name), 26)}</div>
       <div>
         <h3>${esc(f.name)}</h3>
-        <div style="margin-top:6px;"><span class="${chip.cls}">${chip.label}</span></div>
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
+          <span class="${chip.cls}">${chip.label}</span>
+          <span class="badge-personal">مستند شخصي</span>
+        </div>
       </div>
     </div>
     <dl class="meta-table">
       <div><dt>القسم</dt><dd>${esc(secName)}</dd></div>
       <div><dt>المحور</dt><dd>${esc(axisName)}</dd></div>
       <div><dt>العنصر</dt><dd>${esc(elName)}</dd></div>
-      <div><dt>الخانة</dt><dd>${esc(slotName)}</dd></div>
+      <div><dt>الخانة المعتمدة</dt><dd>${esc(slotName)}</dd></div>
       <div><dt>الحجم</dt><dd class="num">${humanSize(f.size)}</dd></div>
       <div><dt>تاريخ الإضافة</dt><dd class="num">${formatDate(f.added)}</dd></div>
       <div><dt>ملاحظة</dt><dd>${f.note ? esc(f.note) : '<span style="color:var(--ink-faint);">لا توجد</span>'}</dd></div>
     </dl>
     <div class="preview-box">${previewHint}</div>
     <div class="share-box">
-      <label class="caption" for="shareLink">رابط المشاركة</label>
+      <label class="caption" for="shareLink">رابط المشاركة للمفتش(ة)</label>
       <div class="share-row">
-        <input class="input" id="shareLink" readonly value="https://mahfazati.ma/f/x7Kp2q">
+        <input class="input" id="shareLink" readonly value="https://mahfazati.ma/f/${encodeURIComponent(f.name.slice(0, 8))}">
         <button class="btn btn-secondary btn-icon" id="copyLinkBtn" aria-label="نسخ الرابط" title="نسخ الرابط">${ic("copy")}</button>
       </div>
       <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="switch-label">يتطلب رمز وصول</span></label>
     </div>
     <div class="drawer-actions">
-      <button class="btn btn-primary" id="dlBtn">${ic("download", 18)} تنزيل</button>
+      <button class="btn btn-primary" id="dlBtn">${ic("download", 18)} تنزيل المستند</button>
       <button class="btn btn-danger-outline" id="delBtn">${ic("trash", 18)} حذف</button>
     </div>`;
-  openDrawer("بيانات المستند", body);
+  openDrawer("بيانات المستند الشخصي", body);
 
   $("#copyLinkBtn").onclick = () => {
     const inp = $("#shareLink");
@@ -223,23 +239,75 @@ function openFileDrawer(key) {
   };
 }
 
-/* ---------- Upload drawer ---------- */
+function openPlatformFicheDrawer(id) {
+  const f = platformFicheById(id);
+  if (!f) return;
+  const res = getElementById(f.element_id);
+  const secName = res ? res.section.name : "القسم الديداكتيكي";
+  const axisName = res ? res.axis.name : "تخطيط التعلمات";
+  const elName = res ? res.element.name : "الوثائق التربوية";
+  const chip = formatChip(f.name);
+
+  const tagsHTML = (f.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join(" ");
+
+  const body = `
+    <div class="file-hero">
+      <div class="fh-icon">${ic(familyIcon(f.name), 26)}</div>
+      <div>
+        <h3>${esc(f.title || f.name)}</h3>
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span class="${chip.cls}">${chip.label}</span>
+          <span class="badge-platform">وثيقة المنهاج الرسمية</span>
+          ${levelBadge(f.level)}
+        </div>
+      </div>
+    </div>
+    <div class="folder-path-display" title="المسار الأصلي داخل الملف التراكمي">
+      ${ic("folder", 15)} ${esc(f.file_path)}
+    </div>
+    <dl class="meta-table">
+      <div><dt>القسم</dt><dd>${esc(secName)}</dd></div>
+      <div><dt>المحور</dt><dd>${esc(axisName)}</dd></div>
+      <div><dt>العنصر</dt><dd>${esc(elName)}</dd></div>
+      <div><dt>المستوى المستهدف</dt><dd>${f.level ? esc(f.level) : "عام / كافة المستويات"}</dd></div>
+      <div><dt>الحجم المرجعي</dt><dd class="num">${humanSize(f.size)}</dd></div>
+      <div><dt>الوسوم والتصنيف</dt><dd>${tagsHTML || '<span style="color:var(--ink-faint);">بدون وسوم</span>'}</dd></div>
+    </dl>
+    <div class="preview-box">
+      ${ic("fileText", 28)}
+      <span>وثيقة نموذجية رسمية جاهزة للاستثمار الصفي والتنزيل كقالب مرجعي.</span>
+    </div>
+    <div class="drawer-actions">
+      <button class="btn btn-primary" id="dlPfBtn">${ic("download", 18)} تحميل النموذج المعتمد</button>
+      <button class="btn btn-secondary" id="useTemplateBtn">${ic("upload", 18)} تعبئة ورفع نسختي الشخصية</button>
+    </div>`;
+  openDrawer("بطاقة ووثيقة المنهاج الرسمية", body);
+
+  $("#dlPfBtn").onclick = () => toast(`جارٍ تحميل: ${f.name}`);
+  $("#useTemplateBtn").onclick = () => {
+    closeDrawer();
+    if (res) openUploadDrawer({ si: res.si, ai: res.ai, ei: res.ei });
+    else openUploadDrawer({});
+  };
+}
+
+/* ---------- Upload Drawer ---------- */
 
 function destSelects(ctx) {
   const si = ctx.si ?? 0, ai = ctx.ai ?? 0, ei = ctx.ei ?? 0;
   const secOpts = TAXONOMY.map((s, i) => `<option value="${i}" ${i === si ? "selected" : ""}>${s.name}</option>`).join("");
-  const axisOpts = TAXONOMY[si].axes.map((a, i) => `<option value="${i}" ${i === ai ? "selected" : ""}>${a.name}</option>`).join("");
-  const elOpts = TAXONOMY[si].axes[ai].elements.map((e, i) => `<option value="${i}" ${i === ei ? "selected" : ""}>${e.name}</option>`).join("");
+  const axisOpts = TAXONOMY[si].axes.map((a, i) => `<option value="${i}" ${i === ai ? "selected" : ""}>${a.folderName || a.name}</option>`).join("");
+  const elOpts = TAXONOMY[si].axes[ai].elements.map((e, i) => `<option value="${i}" ${i === ei ? "selected" : ""}>${e.folderName || e.name}</option>`).join("");
   const slots = TAXONOMY[si].axes[ai].elements[ei].slots;
   const slotOpts = `<option value="-1" ${ctx.qi == null ? "selected" : ""}>بدون خانة محددة</option>` +
     slots.map((s, i) => `<option value="${i}" ${i === ctx.qi ? "selected" : ""}>${s}</option>`).join("");
   return `
     <div class="dest-grid">
-      <div class="field"><label for="upSec">القسم</label><select class="input" id="upSec">${secOpts}</select></div>
+      <div class="field"><label for="upSec">القسم الرسمي</label><select class="input" id="upSec">${secOpts}</select></div>
       <div class="field"><label for="upAxis">المحور</label><select class="input" id="upAxis">${axisOpts}</select></div>
       <div class="field"><label for="upEl">العنصر</label><select class="input" id="upEl">${elOpts}</select></div>
-      <div class="field"><label for="upSlot">الخانة داخل العنصر</label><select class="input" id="upSlot">${slotOpts}</select></div>
-      <div class="field"><label for="upNote">وصف اختياري</label><input class="input" id="upNote" placeholder="مثال: نسخة مؤطرة بتوجيهات المفتش(ة)"></div>
+      <div class="field"><label for="upSlot">الخانة المعتمدة للتفتيش</label><select class="input" id="upSlot">${slotOpts}</select></div>
+      <div class="field"><label for="upNote">ملاحظة أو توصيف إضافي</label><input class="input" id="upNote" placeholder="مثال: نسخة محينة وفق ملاحظات السيد(ة) المفتش(ة)"></div>
     </div>`;
 }
 
@@ -247,8 +315,8 @@ function wireDestSelects(ctx) {
   const upSec = $("#upSec"), upAxis = $("#upAxis"), upEl = $("#upEl"), upSlot = $("#upSlot");
   const refresh = () => {
     const si = +upSec.value, ai = +upAxis.value, ei = +upEl.value;
-    upAxis.innerHTML = TAXONOMY[si].axes.map((a, i) => `<option value="${i}">${a.name}</option>`).join("");
-    upEl.innerHTML = TAXONOMY[si].axes[ai].elements.map((e, i) => `<option value="${i}">${e.name}</option>`).join("");
+    upAxis.innerHTML = TAXONOMY[si].axes.map((a, i) => `<option value="${i}">${a.folderName || a.name}</option>`).join("");
+    upEl.innerHTML = TAXONOMY[si].axes[ai].elements.map((e, i) => `<option value="${i}">${e.folderName || e.name}</option>`).join("");
     refreshSlots();
   };
   const refreshSlots = () => {
@@ -263,12 +331,11 @@ function wireDestSelects(ctx) {
 
 function openUploadDrawer(ctx = {}) {
   state.uploadCtx = Object.assign({ si: null, ai: null, ei: null, qi: null }, ctx);
-  const suggested = state.uploadCtx.si == null && !ctx.noSuggest ? null : null;
   const body = `
     <label class="dropzone" id="dropzone">
       ${ic("upload", 30)}
       <b>اسحب الملف هنا أو انقر لاختياره</b>
-      <small>الصيغ المتاحة: PDF، مشتقات أوفيس، صور وفيديو</small>
+      <small>الصيغ المعتمدة: PDF، وورد، إكسيل، باوربوينت، وسائط (حد أقصى 50MB)</small>
       <input type="file" id="upFile" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.webp,.mp4" hidden>
     </label>
     <div class="upload-progress" id="uploadMeta" hidden>
@@ -278,10 +345,10 @@ function openUploadDrawer(ctx = {}) {
     <div id="destWrap">${destSelects(state.uploadCtx)}</div>
     <div id="suggestHint"></div>
     <div class="drawer-actions">
-      <button class="btn btn-primary" id="confirmUpload" disabled>${ic("upload", 18)} رفع المستند</button>
+      <button class="btn btn-primary" id="confirmUpload" disabled>${ic("upload", 18)} إيداع وتصنيف المستند</button>
       <button class="btn btn-ghost" id="cancelUpload">إلغاء</button>
     </div>`;
-  openDrawer("رفع مستند جديد", body);
+  openDrawer("إيداع مستند في الملف التراكمي", body);
   wireDestSelects(state.uploadCtx);
 
   let chosenFile = null;
@@ -325,7 +392,7 @@ function openUploadDrawer(ctx = {}) {
   confirmBtn.onclick = () => {
     if (!chosenFile || confirmBtn.disabled) return;
     confirmBtn.disabled = true;
-    confirmBtn.innerHTML = `<span class="spinner"></span> جارٍ الرفع والتصنيف…`;
+    confirmBtn.innerHTML = `<span class="spinner"></span> جارٍ الرفع والتصنيف في الملف…`;
     const bar = $("#upBar");
     let p = 0;
     const tick = setInterval(() => {
@@ -341,21 +408,22 @@ function openUploadDrawer(ctx = {}) {
         name: chosenFile.name,
         size: chosenFile.size,
         added: new Date(),
-        note: $("#upNote").value.trim()
+        note: $("#upNote").value.trim(),
+        scope: "personal"
       };
       FILES.push(rec);
       const r = resolveSlot(rec.key);
       setTimeout(() => {
         closeDrawer();
-        toast(`تم رفع المستند وتصنيفه في «${r.el.name}»`);
+        toast(`تم تصنيف وإيداع «${chosenFile.name}» في «${r.el.name}»`);
         if (location.hash !== `#/e/${si}/${ai}/${ei}`) location.hash = `#/e/${si}/${ai}/${ei}`;
         else renderRoute();
       }, 220);
-    }, 1000);
+    }, 900);
   };
 }
 
-/* ---------- Search ---------- */
+/* ---------- Search Index ---------- */
 
 let SEARCH_INDEX = null;
 
@@ -365,6 +433,7 @@ function buildIndex() {
     SEARCH_INDEX.push({
       t: "el",
       label: el.name,
+      folder: el.folderName,
       path: `${sec.short} › ${axis.name}`,
       si, ai, ei
     });
@@ -373,10 +442,23 @@ function buildIndex() {
         t: "f",
         label: f.name,
         path: `${sec.short} › ${axis.name} › ${el.name}`,
-        key: f.key
+        key: f.key,
+        scope: "personal"
       });
     });
   })));
+
+  PLATFORM_FICHES.forEach(f => {
+    const res = getElementById(f.element_id);
+    const path = res ? `${res.section.short} › ${res.axis.name} › ${res.element.name}` : "المنهاج الرسمي";
+    SEARCH_INDEX.push({
+      t: "pf",
+      label: f.title || f.name,
+      path,
+      id: f.id,
+      scope: "platform"
+    });
+  });
 }
 
 function hideSearchResults() {
@@ -386,24 +468,31 @@ function hideSearchResults() {
 
 function runSearch(q) {
   const box = $("#searchResults");
-  q = q.trim();
+  q = q.trim().toLowerCase();
   if (q.length < 2) { hideSearchResults(); return; }
-  const hits = SEARCH_INDEX.filter(x => (x.label + " " + x.path).includes(q));
-  const els = hits.filter(h => h.t === "el").slice(0, 6);
-  const fls = hits.filter(h => h.t === "f").slice(0, 6);
+  const hits = SEARCH_INDEX.filter(x => (x.label + " " + x.path + " " + (x.folder || "")).toLowerCase().includes(q));
+  const els = hits.filter(h => h.t === "el").slice(0, 5);
+  const pfs = hits.filter(h => h.t === "pf").slice(0, 6);
+  const fls = hits.filter(h => h.t === "f").slice(0, 5);
+
   let html = "";
   if (els.length) {
-    html += `<div class="sr-group">العناصر</div>` + els.map(h =>
+    html += `<div class="sr-group">عناصر ومجلدات الملف التراكمي</div>` + els.map(h =>
       `<button class="sr-item" data-el="${h.si}.${h.ai}.${h.ei}" role="option">${ic("folder", 18)}<span>${esc(h.label)}</span><small>${esc(h.path)}</small></button>`).join("");
   }
+  if (pfs.length) {
+    html += `<div class="sr-group">وثائق وبطاقات المنهاج المرجعية (رسمي)</div>` + pfs.map(h =>
+      `<button class="sr-item" data-pf="${h.id}" role="option">${ic("fileText", 18)}<span>${esc(h.label)}</span><span class="badge-platform">منهاج</span><small>${esc(h.path)}</small></button>`).join("");
+  }
   if (fls.length) {
-    html += `<div class="sr-group">المستندات</div>` + fls.map(h =>
+    html += `<div class="sr-group">مستنداتي الشخصية المودعة</div>` + fls.map(h =>
       `<button class="sr-item" data-file="${h.key}" role="option">${ic(familyIcon(h.label), 18)}<span>${esc(h.label)}</span><small>${esc(h.path)}</small></button>`).join("");
   }
-  if (!html) html = `<div class="sr-empty">لا نتائج مطابقة لـ«${esc(q)}»</div>`;
+  if (!html) html = `<div class="sr-empty">لا نتائج مطابقة لـ«${esc(q)}» في الملف التراكمي</div>`;
   box.innerHTML = html;
   box.hidden = false;
   $("#globalSearch").setAttribute("aria-expanded", "true");
+
   $$("button.sr-item", box).forEach(btn => {
     btn.addEventListener("mousedown", e => {
       e.preventDefault();
@@ -412,6 +501,10 @@ function runSearch(q) {
         hideSearchResults();
         $("#globalSearch").value = "";
         location.hash = `#/e/${si}/${ai}/${ei}`;
+      } else if (btn.dataset.pf) {
+        hideSearchResults();
+        $("#globalSearch").value = "";
+        openPlatformFicheDrawer(btn.dataset.pf);
       } else if (btn.dataset.file) {
         hideSearchResults();
         $("#globalSearch").value = "";
@@ -421,7 +514,7 @@ function runSearch(q) {
   });
 }
 
-/* ---------- Sidebar tree ---------- */
+/* ---------- Sidebar Navigation Tree ---------- */
 
 function renderTree() {
   const nav = $("#treeNav");
@@ -442,19 +535,21 @@ function renderTree() {
 
   TAXONOMY.forEach((sec, si) => {
     const expanded = state.expandedSections.has(si);
+    const st = sectionTotals(si);
     html += `<div class="tree-section">
       <button class="tree-section-head" data-sec="${si}" aria-expanded="${expanded}">
         ${ic(SECTION_ICONS[si], 20)}
-        <span>${sec.name}</span>
+        <span style="font-weight:650;">${sec.name}</span>
         <span class="chev">${ic("chevDown", 16)}</span>
       </button>`;
     if (expanded) {
       html += `<div class="tree-axes">`;
       sec.axes.forEach((axis, ai) => {
         const axOpen = expanded && (activeSi === si && (activeAi === ai || state.expandedAxes.has(`${si}.${ai}`)));
+        const at = axisTotals(si, ai);
         html += `<div class="tree-axis">
           <button class="tree-axis-head" data-axis="${si}.${ai}" aria-expanded="${axOpen}">
-            <span>${axis.name}</span>
+            <span>${ic(axOpen ? "folderOpen" : "folder", 16)} <b>${axis.folderName || axis.name}</b></span>
             <span class="chev">${ic("chevDown", 15)}</span>
           </button>`;
         if (axOpen) {
@@ -464,7 +559,7 @@ function renderTree() {
             const isActive = activeSi === si && activeAi === ai && activeEi === ei;
             html += `<li><button class="tree-el" data-elgo="${si}.${ai}.${ei}" ${isActive ? 'aria-current="page"' : ""}>
               <span>${el.name}</span>
-              <span class="el-count num">${c.filled}/${c.total}</span>
+              <span class="el-count num" title="${c.filled} مستندات شخصية من ${c.total} خانات · ${c.platformCount} وثائق منهاج">${c.filled}/${c.total}</span>
             </button></li>`;
           });
           html += `</ul>`;
@@ -504,7 +599,7 @@ function renderTree() {
   });
 }
 
-/* ---------- Views ---------- */
+/* ---------- Breadcrumbs & Headers ---------- */
 
 function crumb(items) {
   const sep = `<span class="sep">›</span>`;
@@ -520,11 +615,14 @@ function greeting() {
   return h < 12 ? "صباح الخير" : "مساء الخير";
 }
 
+/* ---------- View: Dashboard ---------- */
+
 function renderDashboard(main) {
   const ov = overallTotals();
   const recent = [...FILES].sort((a, b) => b.added - a.added).slice(0, 5);
   const famCounts = { pdf: 0, office: 0, media: 0, other: 0 };
   FILES.forEach(f => famCounts[fileFamily(f.name)]++);
+  PLATFORM_FICHES.forEach(f => famCounts[fileFamily(f.name)]++);
 
   const ledgerRows = TAXONOMY.map((sec, si) => {
     const t = sectionTotals(si);
@@ -532,8 +630,11 @@ function renderDashboard(main) {
     return `<div class="ledger-row">
       <button data-go="#/s/${si}">
         <span class="l-icon">${ic(SECTION_ICONS[si], 21)}</span>
-        <span class="l-name"><b>${sec.name}</b><span>${sec.tagline}</span></span>
-        <span class="l-count num">${t.filled} من ${t.total} خانة</span>
+        <span class="l-name">
+          <b>${sec.name}</b>
+          <span>${sec.tagline} · ${t.platformCount} وثيقة مرجعية</span>
+        </span>
+        <span class="l-count num">${t.filled} من ${t.total} خانة موثقة</span>
         <span class="l-meter meter"><i style="width:${pct}%"></i></span>
       </button>
     </div>`;
@@ -556,19 +657,19 @@ function renderDashboard(main) {
     <div class="page-head">
       <div class="titles">
         <h1>${greeting()}، ${esc(state.user.name)}</h1>
-        <p class="meta num">${todayLine()} · اكتمل ${ov.filled} خانة من ${ov.total} في ملفك</p>
+        <p class="meta num">${todayLine()} · ${ov.platformTotal} وثيقة منهاج مرجعية مدمجة · ${ov.filled} خانة شخصية موثقة</p>
       </div>
       <div class="actions">
         <button class="btn btn-ghost" id="exportAllBtn">${ic("download", 18)} تصدير الملف كاملًا</button>
-        <button class="btn btn-primary" id="dashUploadBtn">${ic("upload", 18)} رفع مستند</button>
+        <button class="btn btn-primary" id="dashUploadBtn">${ic("upload", 18)} إيداع مستند جديد</button>
       </div>
     </div>
 
     <div class="dash-grid">
       <section class="panel" aria-labelledby="ledgerTitle">
         <div class="panel-head">
-          <h2 class="h3" id="ledgerTitle">سجل الاكتمال</h2>
-          <span class="meta-push caption">جاهز للعرض أمام المفتش(ة)</span>
+          <h2 class="h3" id="ledgerTitle">أقسام الملف التراكمي الرسمية</h2>
+          <span class="meta-push caption">مطابقة لتوجيهات المفتشية</span>
         </div>
         ${ledgerRows}
       </section>
@@ -576,34 +677,36 @@ function renderDashboard(main) {
       <div style="display:grid;gap:24px;">
         <section class="panel" aria-labelledby="recentTitle">
           <div class="panel-head">
-            <h2 class="h3" id="recentTitle">آخر المستندات المرفوعة</h2>
-            <span class="meta-push caption num">${FILES.length} مستندًا</span>
+            <h2 class="h3" id="recentTitle">أحدث الوثائق الشخصية المودعة</h2>
+            <span class="meta-push caption num">${FILES.length} مستندات</span>
           </div>
-          <ul class="activity-list">${activityItems}</ul>
+          <ul class="activity-list">${activityItems.length ? activityItems : '<li style="color:var(--ink-faint);padding:18px 20px;">لم يتم رفع مستندات شخصية بعد</li>'}</ul>
           <div class="formats-strip">
             <span class="tag num">${ic("fileText", 15)} PDF × ${famCounts.pdf}</span>
             <span class="tag num">${ic("table", 15)} أوفيس × ${famCounts.office}</span>
-            <span class="tag num">${ic("video", 15)} وسائط × ${famCounts.media}</span>
+            <span class="tag num">${ic("sparkle", 15)} وثائق المنهاج × ${PLATFORM_FICHES.length}</span>
           </div>
         </section>
 
         <section class="panel">
-          <div class="panel-head"><h2 class="h3">تذكير بالمستجدات</h2></div>
+          <div class="panel-head"><h2 class="h3">توجيهات التفتيش والتحيين</h2></div>
           <div class="panel-body" style="font-size:.875rem;color:var(--ink-soft);line-height:1.9;">
-            خارطة الطريق 2022-2026 والنظام الأساسي الجديد (مرسوم 2.24.140) يفرضان تحيين الوثائق المرجعية دوريًا. راجع قسم التشريع المدرسي لتغطية الخانات الناقصة.
+            بنية الملف التراكمي مطابقة تمامًا للمجلد الوزاري المعتمد (التربوي الإداري، الديداكتيكي، والتكويني المهني). استخدم قوالب وبطاقات المنهاج الجاهزة لتعبئة وتوثيق ممارستك الصفية باستمرار.
           </div>
         </section>
       </div>
     </div>`;
 
   $("#dashUploadBtn").onclick = () => openUploadDrawer({});
-  $("#exportAllBtn").onclick = () => toast("تصدير تجريبي: سيُجمَّع الملف كاملًا بصيغة PDF عند الربط بالخادم");
+  $("#exportAllBtn").onclick = () => toast("تصدير تجريبي: سيُجمَّع الملف التراكمي كاملًا بصيغة PDF عند الربط بالخادم");
   $$("[data-go]", main).forEach(b => b.onclick = () => location.hash = b.dataset.go);
   $$("li[data-file]", main).forEach(li => {
     li.addEventListener("click", () => openFileDrawer(li.dataset.file));
     li.addEventListener("keydown", e => { if (e.key === "Enter") openFileDrawer(li.dataset.file); });
   });
 }
+
+/* ---------- View: Section Page ---------- */
 
 function renderSectionPage(main, si) {
   const sec = TAXONOMY[si];
@@ -615,7 +718,10 @@ function renderSectionPage(main, si) {
       return `<button class="erow" data-elgo="${si}/${ai}/${ei}">
         <span>
           <b>${el.name}</b>
-          <span class="er-meta num"><span>${c.filled} من ${c.total} خانة</span></span>
+          <span class="er-meta num">
+            <span>${c.filled} من ${c.total} خانة موثقة</span>
+            <span>· ${c.platformCount} وثيقة منهاج</span>
+          </span>
         </span>
         <span class="push">
           <span class="meter" style="width:72px;"><i style="width:${c.total ? Math.round(c.filled / c.total * 100) : 0}%"></i></span>
@@ -625,8 +731,8 @@ function renderSectionPage(main, si) {
     }).join("");
     return `<section class="axis-block" aria-labelledby="ax-${si}-${ai}">
       <div class="axis-block-head">
-        <h2 class="h3" id="ax-${si}-${ai}">${axis.name}</h2>
-        <span class="axis-count num">${at.filled}/${at.total} موثقة</span>
+        <h2 class="h3" id="ax-${si}-${ai}">${ic("folder", 18)} ${axis.folderName || axis.name}</h2>
+        <span class="axis-count num">${at.filled}/${at.total} خانة · ${at.platformCount} وثيقة رسمية</span>
       </div>
       <div class="panel element-rows">${rows}</div>
     </section>`;
@@ -640,31 +746,100 @@ function renderSectionPage(main, si) {
     <div class="page-head">
       <div class="titles">
         <h1>${sec.name}</h1>
-        <p class="meta">${sec.tagline} · ${t.filled}/${t.total} خانة موثقة</p>
+        <p class="meta">${sec.tagline} · ${t.filled}/${t.total} خانة شخصية · ${t.platformCount} وثيقة مرجعية</p>
       </div>
       <div class="actions">
-        <button class="btn btn-primary" id="secUploadBtn">${ic("upload", 18)} رفع مستند</button>
+        <button class="btn btn-primary" id="secUploadBtn">${ic("upload", 18)} إيداع مستند</button>
       </div>
     </div>
-    <p class="section-intro">${sec.desc}</p>
+    <div class="folder-path-display" style="margin-bottom:16px;">
+      ${ic("folder", 15)} الملف التراكمي / ${esc(sec.folderName)}
+    </div>
+    <p class="section-intro" style="margin-bottom:24px;">${sec.desc}</p>
     ${blocks}`;
 
   $("#secUploadBtn").onclick = () => openUploadDrawer({ si, noSuggest: false });
   $$("button[data-elgo]", main).forEach(b => b.onclick = () => location.hash = "#/e/" + b.dataset.elgo);
 }
 
+/* ---------- View: Element Page ---------- */
+
 function renderElementPage(main, si, ai, ei) {
   const sec = TAXONOMY[si], axis = sec.axes[ai], el = axis.elements[ei];
-  const files = filesOfElement(si, ai, ei);
+  const personalFiles = filesOfElement(si, ai, ei);
+  const platformFiles = platformFichesOfElement(si, ai, ei);
   const c = elementCounts(si, ai, ei);
 
   state.expandedSections.add(si);
   state.expandedAxes.add(`${si}.${ai}`);
 
+  // Level filtering
+  const hasLevels = !!(el.levels && el.levels.length) || platformFiles.some(f => f.level);
+  let activeFilter = state.currentLevelFilter;
+  let displayedPlatformFiles = platformFiles;
+  if (activeFilter !== "all") {
+    displayedPlatformFiles = platformFiles.filter(f => f.level === activeFilter || (!f.level && activeFilter === "عام"));
+  }
+
   const tabs = axis.elements.map((sib, i) =>
     `<button class="el-tab ${i === ei ? "active" : ""}" data-tab="${i}">${sib.name}</button>`).join("");
 
-  const tableRows = files.map(f => {
+  let filterBarHTML = "";
+  if (hasLevels) {
+    const levels = ["الكل", "جذع مشترك", "أولى باك", "ثانية باك"];
+    filterBarHTML = `
+      <div class="level-filter-bar" role="toolbar" aria-label="تصفية حسب المستوى الدراسي">
+        <span class="lbl">تصفية حسب المستوى:</span>
+        ${levels.map(lvl => {
+          const key = lvl === "الكل" ? "all" : lvl;
+          const isActive = activeFilter === key;
+          const cnt = key === "all" ? platformFiles.length : platformFiles.filter(f => f.level === key).length;
+          return `<button class="filter-btn ${isActive ? "active" : ""}" data-lvl="${key}">${esc(lvl)} <span class="badge-cnt">${cnt}</span></button>`;
+        }).join("")}
+      </div>`;
+  }
+
+  // 1. Platform Reference Fiches Table
+  const platformRows = displayedPlatformFiles.map(f => {
+    const chip = formatChip(f.name);
+    return `<tr data-pf="${f.id}" tabindex="0">
+      <td>
+        <span class="file-cell">
+          <span class="${chip.cls}">${chip.label}</span>
+          <span style="min-width:0;">
+            <span class="f-name">${esc(f.title || f.name)}</span>
+            <span class="f-note">${esc(f.file_path)}</span>
+          </span>
+        </span>
+      </td>
+      <td><span class="badge-platform">منهاج رسمي</span></td>
+      <td>${levelBadge(f.level) || '<span style="color:var(--ink-faint);font-size:.75rem;">مشترك</span>'}</td>
+      <td class="num-cell">${humanSize(f.size)}</td>
+      <td>
+        <span class="row-actions">
+          <button class="btn btn-ghost btn-icon" data-pf-act="open" data-pf="${f.id}" aria-label="معاينة">${ic("eye", 18)}</button>
+          <button class="btn btn-ghost btn-icon" data-pf-act="dl" data-pf="${f.id}" aria-label="تنزيل النموذج">${ic("download", 18)}</button>
+        </span>
+      </td>
+    </tr>`;
+  }).join("");
+
+  const platformPanel = platformFiles.length ? `
+    <section class="panel" style="margin-top:20px;" aria-labelledby="platformT">
+      <div class="panel-head">
+        <h2 class="h3" id="platformT">${ic("sparkle", 18)} وثائق وبطاقات المنهاج المرجعية</h2>
+        <span class="meta-push caption num">${displayedPlatformFiles.length} وثيقة معتمدة</span>
+      </div>
+      <div class="table-scroll">
+        <table class="doc-table">
+          <thead><tr><th scope="col">الوثيقة / البطاقة</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
+          <tbody>${platformRows.length ? platformRows : '<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:24px;">لا توجد وثائق مطابقة للمستوى المحدد</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>` : "";
+
+  // 2. Personal Uploaded Documents Table
+  const personalRows = personalFiles.map(f => {
     const chip = formatChip(f.name);
     const slotIdx = +f.key.split(".")[3];
     return `<tr data-file="${f.key}" tabindex="0">
@@ -677,7 +852,7 @@ function renderElementPage(main, si, ai, ei) {
           </span>
         </span>
       </td>
-      <td class="num-cell">${esc(el.slots[slotIdx] || "")}</td>
+      <td class="num-cell">${esc(el.slots[slotIdx] || "غير محدد")}</td>
       <td class="num-cell">${humanSize(f.size)}</td>
       <td class="num-cell">${formatDate(f.added)}</td>
       <td>
@@ -690,27 +865,28 @@ function renderElementPage(main, si, ai, ei) {
     </tr>`;
   }).join("");
 
-  const filesPanel = files.length ? `
-    <section class="panel" aria-labelledby="filesT">
+  const personalPanel = personalFiles.length ? `
+    <section class="panel" style="margin-top:20px;" aria-labelledby="filesT">
       <div class="panel-head">
-        <h2 class="h3" id="filesT">المستندات المرفوعة</h2>
-        <span class="meta-push caption num">${files.length} مستند</span>
+        <h2 class="h3" id="filesT">${ic("folder", 18)} مستنداتي الشخصية المودعة</h2>
+        <span class="meta-push caption num">${personalFiles.length} مستند شخصي</span>
       </div>
       <div class="table-scroll">
         <table class="doc-table">
-          <thead><tr><th scope="col">المستند</th><th scope="col">الخانة</th><th scope="col">الحجم</th><th scope="col">أُضيف في</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
-          <tbody>${tableRows}</tbody>
+          <thead><tr><th scope="col">المستند</th><th scope="col">الخانة المعتمدة</th><th scope="col">الحجم</th><th scope="col">أُضيف في</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
+          <tbody>${personalRows}</tbody>
         </table>
       </div>
     </section>` : `
-    <section class="panel">
+    <section class="panel" style="margin-top:20px;">
       <div class="empty-state">
         ${ic("folder", 40)}
-        <p>لم يُرفع أي مستند لهذا العنصر بعد. ابدأ بملء الخانات المتوقعة أدناه ليكتمل ملفك.</p>
-        <button class="btn btn-primary btn-sm" id="emptyUploadBtn">${ic("upload", 16)} رفع أول مستند</button>
+        <p>لم تُودع أي مستند شخصي لهذا العنصر بعد. يمكنك استخدام نماذج المنهاج أعلاه أو رفع ملفك المباشر في الخانات أدناه.</p>
+        <button class="btn btn-primary btn-sm" id="emptyUploadBtn">${ic("upload", 16)} رفع أول مستند شخصي</button>
       </div>
     </section>`;
 
+  // 3. Official Filing Slots Checklist
   const slotRows = el.slots.map((slot, qi) => {
     const key = slotKey(si, ai, ei, qi);
     const f = fileById(key);
@@ -741,25 +917,54 @@ function renderElementPage(main, si, ai, ei) {
       </div>
       <div class="actions">
         <button class="btn btn-ghost" id="elExportBtn">${ic("share", 18)} مشاركة العنصر</button>
-        <button class="btn btn-primary" id="elUploadBtn">${ic("upload", 18)} رفع إلى هذا العنصر</button>
+        <button class="btn btn-primary" id="elUploadBtn">${ic("upload", 18)} إيداع في هذا العنصر</button>
       </div>
     </div>
+    <div class="folder-path-display" style="margin-bottom:16px;">
+      ${ic("folder", 15)} الملف التراكمي / ${esc(sec.folderName)} / ${esc(axis.folderName)} / ${esc(el.folderName || el.name)}
+    </div>
     <div class="el-tabs" role="tablist" aria-label="عناصر المحور">${tabs}</div>
-    ${filesPanel}
+    ${filterBarHTML}
+    ${platformPanel}
+    ${personalPanel}
     <section class="panel" style="margin-top:24px;" aria-labelledby="slotsT">
       <div class="panel-head">
-        <h2 class="h3" id="slotsT">الخانات المتوقعة</h2>
+        <h2 class="h3" id="slotsT">خانات التفتيش والمطابقة الوزارية</h2>
         <span class="meta-push caption num">${c.filled}/${c.total} موثقة</span>
       </div>
       <div class="slot-list">${slotRows}</div>
     </section>`;
 
-  $$("button[data-tab]", main).forEach(b => b.onclick = () => location.hash = `#/e/${si}/${ai}/${b.dataset.tab}`);
+  $$("button[data-tab]", main).forEach(b => b.onclick = () => {
+    state.currentLevelFilter = "all";
+    location.hash = `#/e/${si}/${ai}/${b.dataset.tab}`;
+  });
+
+  $$("button[data-lvl]", main).forEach(b => b.onclick = () => {
+    state.currentLevelFilter = b.dataset.lvl;
+    renderElementPage(main, si, ai, ei);
+  });
+
   $("#elUploadBtn").onclick = () => openUploadDrawer({ si, ai, ei });
   const eb = $("#emptyUploadBtn");
   if (eb) eb.onclick = () => openUploadDrawer({ si, ai, ei });
   $("#elExportBtn").onclick = () => toast("مشاركة تجريبية: سيولَّد رابط للعنصر عند الربط بالخادم");
 
+  // Platform fiches clicks
+  $$("tr[data-pf]", main).forEach(tr => {
+    tr.addEventListener("click", e => {
+      if (e.target.closest("button")) return;
+      openPlatformFicheDrawer(tr.dataset.pf);
+    });
+    tr.addEventListener("keydown", e => { if (e.key === "Enter") openPlatformFicheDrawer(tr.dataset.pf); });
+  });
+  $$("button[data-pf-act='open']", main).forEach(b => b.onclick = () => openPlatformFicheDrawer(b.dataset.pf));
+  $$("button[data-pf-act='dl']", main).forEach(b => b.onclick = () => {
+    const f = platformFicheById(b.dataset.pf);
+    toast(`جارٍ تنزيل: ${f ? f.name : "النموذج"}`);
+  });
+
+  // Personal files clicks
   $$("tr[data-file]", main).forEach(tr => {
     tr.addEventListener("click", e => {
       if (e.target.closest("button")) return;
@@ -774,14 +979,16 @@ function renderElementPage(main, si, ai, ei) {
   $$("button[data-act='open']", main).forEach(b => b.onclick = () => openFileDrawer(b.dataset.file));
 }
 
+/* ---------- View: Settings ---------- */
+
 function agreementDrawer() {
-  openDrawer("عقد المسؤولية الشخصية", `
+  openDrawer("عقد المسؤولية الشخصية والمهنية", `
     <div style="font-size:.9063rem;line-height:2;color:var(--ink-soft);">
-      <p>يتعهد الموقّع أدناه بالحفظ المسؤول للبيانات المهنية المرفوعة داخل المنصة، بما فيها:</p>
-      <p>1. عدم مشاركة الوثائق المتعلقة بالمتعلمين خارج الأطر القانونية الجاري بها العمل.</p>
-      <p>2. تحمل المسؤولية الشخصية الكاملة عن دقة المعطيات وسريتها وصيانتها.</p>
-      <p>3. الالتزام بمقتضيات المرسوم 2.24.140 والنصوص التنظيمية لحماية المعطيات.</p>
-      <p>4. تحيين المحتوى دوريًا وفق ملاحظات السيد(ة) المفتش(ة).</p>
+      <p>يتعهد الأستاذ(ة) الموقّع بالحفظ المسؤول للبيانات المهنية والتربوية داخل المنصة، بما فيها:</p>
+      <p>1. صيانة الوثائق المتعلقة بالمتعلمين والالتزام بالسرية الإدارية والتربوية.</p>
+      <p>2. تحمل المسؤولية الكاملة عن صحة المعطيات المودعة ومطابقتها للمنهاج الرسمي.</p>
+      <p>3. الالتزام بمقتضيات النظام الأساسي لموظفي الوزارة والنصوص التنظيمية ذات الصلة.</p>
+      <p>4. تحيين الوثائق دوريًا وفق توجيهات وملاحظات السيد(ة) المفتش(ة).</p>
     </div>
     <div class="dest-hint" style="color:var(--success);">
       ${ic("pen", 16)} مُوقّع إلكترونيًا بتاريخ <span class="num">${formatDate(new Date())}</span> بواسطة ${esc(state.user.email)}
@@ -806,74 +1013,70 @@ function renderSettings(main) {
     ])}
     <div class="page-head">
       <div class="titles">
-        <h1>الإعدادات</h1>
-        <p class="meta">تخصيص الإشعارات، والخصوصية، والتخزين والبيانات</p>
+        <h1>الإعدادات والتخزين</h1>
+        <p class="meta">إدارة الحساب، التخزين، والنسخ الاحتياطي للملف التراكمي</p>
       </div>
     </div>
 
     <div class="settings-grid" style="margin-top:24px;">
       <section class="panel" aria-labelledby="setNotif">
-        <div class="panel-head"><h2 class="h3" id="setNotif">${ic("bell", 19)} الإشعارات</h2></div>
+        <div class="panel-head"><h2 class="h3" id="setNotif">${ic("bell", 19)} الإشعارات والتنبيهات</h2></div>
         <div class="setting-line">
-          <span class="sl-body"><b>تذكيرات تحيين الملف</b><span>تنبيه شهري عند وجود خانات فارغة في أقسام رئيسية</span></span>
-          <span class="push"><label class="switch"><input type="checkbox" checked aria-label="تذكيرات تحيين الملف"><span class="track"></span></label></span>
+          <span class="sl-body"><b>تذكيرات التحيين الدوري</b><span>تنبيه شهري عند وجود خانات فارغة في عناصر التفتيش</span></span>
+          <span class="push"><label class="switch"><input type="checkbox" checked aria-label="تذكيرات التحيين الدوري"><span class="track"></span></label></span>
         </div>
         <div class="setting-line">
-          <span class="sl-body"><b>إشعارات المشاركة</b><span>إخباري عند فتح رابط مشاركة لأحد مستنداتك</span></span>
-          <span class="push"><label class="switch"><input type="checkbox" checked aria-label="إشعارات المشاركة"><span class="track"></span></label></span>
-        </div>
-        <div class="setting-line">
-          <span class="sl-body"><b>الملخص الأسبوعي</b><span>رسالة موجزة بأحدث ما رُفع وما ينقص ملفك</span></span>
-          <span class="push"><label class="switch"><input type="checkbox" aria-label="الملخص الأسبوعي"><span class="track"></span></label></span>
+          <span class="sl-body"><b>إشعارات اطلاع المفتش(ة)</b><span>إخباري عند فتح رابط المعاينة للملف</span></span>
+          <span class="push"><label class="switch"><input type="checkbox" checked aria-label="إشعارات اطلاع المفتش"><span class="track"></span></label></span>
         </div>
       </section>
 
       <section class="panel" aria-labelledby="setPriv">
-        <div class="panel-head"><h2 class="h3" id="setPriv">${ic("shield", 19)} الخصوصية</h2></div>
+        <div class="panel-head"><h2 class="h3" id="setPriv">${ic("shield", 19)} الخصوصية والمسؤولية</h2></div>
         <div class="setting-line">
-          <span class="sl-body"><b>قفل الجلسة تلقائيًا</b><span>بعد 15 دقيقة من السكون حفاظًا على بياناتك</span></span>
-          <span class="push"><label class="switch"><input type="checkbox" checked aria-label="قفل الجلسة تلقائيًا"><span class="track"></span></label></span>
+          <span class="sl-body"><b>قفل الجلسة التلقائي</b><span>بعد 15 دقيقة من السكون صيانةً لبيانات التلاميذ</span></span>
+          <span class="push"><label class="switch"><input type="checkbox" checked aria-label="قفل الجلسة"><span class="track"></span></label></span>
         </div>
         <div class="setting-line">
-          <span class="sl-body"><b>عقد المسؤولية الشخصية</b><span class="num">مُوقّع في ${formatDate(new Date())}</span></span>
-          <span class="push"><button class="btn btn-secondary btn-sm" id="reviewContractBtn">إعادة الاطلاع</button></span>
+          <span class="sl-body"><b>عقد المسؤولية المهنية</b><span class="num">مُعتمد إلكترونيًا في ${formatDate(new Date())}</span></span>
+          <span class="push"><button class="btn btn-secondary btn-sm" id="reviewContractBtn">مراجعة العقد</button></span>
         </div>
       </section>
 
       <section class="panel" aria-labelledby="setStore">
-        <div class="panel-head"><h2 class="h3" id="setStore">${ic("database", 19)} التخزين والبيانات</h2></div>
+        <div class="panel-head"><h2 class="h3" id="setStore">${ic("database", 19)} حالة التخزين والأرشيف</h2></div>
         <div class="panel-body" style="display:grid;gap:14px;">
-          <div class="storage-bar" role="img" aria-label="توزيع التخزين المستعمل حسب الصيغة">
+          <div class="storage-bar" role="img" aria-label="توزيع التخزين المستعمل">
             <i class="seg-pdf" style="width:${segPdf}%"></i><i class="seg-office" style="width:${segOffice}%"></i><i class="seg-media" style="width:${segMedia}%"></i>
           </div>
           <div class="legend-rows">
             <div class="lr"><span class="swatch seg-pdf"></span> PDF <span class="push num">${humanSize(st.byFamily.pdf)}</span></div>
-            <div class="lr"><span class="swatch seg-office"></span> مشتقات أوفيس <span class="push num">${humanSize(st.byFamily.office)}</span></div>
-            <div class="lr"><span class="swatch seg-media"></span> صور وفيديو <span class="push num">${humanSize(st.byFamily.media)}</span></div>
+            <div class="lr"><span class="swatch seg-office"></span> مستندات أوفيس (DOCX/XLSX) <span class="push num">${humanSize(st.byFamily.office)}</span></div>
+            <div class="lr"><span class="swatch seg-media"></span> وسائط ومرفقات <span class="push num">${humanSize(st.byFamily.media)}</span></div>
           </div>
-          <p class="meta num">المستخدم: ${humanSize(st.total)} من 5 غيغابايت (${Math.round(pct)}%)</p>
+          <p class="meta num">المستعمل: ${humanSize(st.total)} من 5 غيغابايت · ${st.personalCount} مستند شخصي · ${st.platformCount} وثيقة منهاج</p>
           <div class="drawer-actions">
-            <button class="btn btn-secondary" id="fullExportBtn">${ic("download", 18)} تصدير كامل الملف</button>
-            <button class="btn btn-ghost" id="importCopyBtn">${ic("upload", 18)} استيراد نسخة احتياطية</button>
+            <button class="btn btn-secondary" id="fullExportBtn">${ic("download", 18)} تصدير نسخة أرشيفية (ZIP)</button>
+            <button class="btn btn-ghost" id="importCopyBtn">${ic("upload", 18)} استيراد مستندات</button>
           </div>
         </div>
       </section>
 
       <section class="panel danger-zone" aria-labelledby="setDanger">
-        <div class="panel-head"><h2 class="h3" id="setDanger">منطقة الخطر</h2></div>
+        <div class="panel-head"><h2 class="h3" id="setDanger">إفراغ الملف</h2></div>
         <div class="setting-line">
-          <span class="sl-body"><b>حذف جميع البيانات</b><span>إجراء لا رجعة فيه: يفرغ كل الأقسام والمستندات</span></span>
-          <span class="push"><button class="btn btn-danger-outline" id="wipeBtn">حذف الكل</button></span>
+          <span class="sl-body"><b>إعادة تعيين المستندات الشخصية</b><span>حذف جميع المستندات المودعة وإبقاء وثائق المنهاج الرسمية</span></span>
+          <span class="push"><button class="btn btn-danger-outline" id="wipeBtn">إعادة تعيين</button></span>
         </div>
       </section>
     </div>`;
 
   $("#reviewContractBtn").onclick = agreementDrawer;
-  $("#fullExportBtn").onclick = () => toast("تصدير تجريبي: سيُجهَّر ملف ZIP يحوي كل الصيغ");
+  $("#fullExportBtn").onclick = () => toast("تصدير تجريبي: سيُجمَّع الملف في أرشيف ZIP");
   $("#importCopyBtn").onclick = () => openUploadDrawer({});
   const wipe = $("#wipeBtn");
   wipe.onclick = () => {
-    if (wipe.dataset.armed) toast("هذا نموذج أولي: لم يُحذف أي شيء فعلًا", "error");
+    if (wipe.dataset.armed) toast("هذا نموذج أولي: لم يُحذف أي شيء", "error");
     else {
       wipe.dataset.armed = "1";
       wipe.classList.remove("btn-danger-outline");
@@ -883,7 +1086,7 @@ function renderSettings(main) {
   };
 }
 
-/* ---------- Auth session ---------- */
+/* ---------- Auth Session ---------- */
 
 function primaryEmailAddress(user) {
   const primary = user.emailAddresses.find(a => a.id === user.primaryEmailAddressId);
@@ -891,7 +1094,7 @@ function primaryEmailAddress(user) {
 }
 
 function displayName(user) {
-  return user.fullName || user.firstName || primaryEmailAddress(user).split("@")[0] || "مستخدم";
+  return user.fullName || user.firstName || primaryEmailAddress(user).split("@")[0] || "أستاذ(ة) الفلسفة";
 }
 
 function enterApp(clerk) {
@@ -901,9 +1104,9 @@ function enterApp(clerk) {
   $("#authView").hidden = true;
   $("#appView").hidden = false;
   mountUserButton(clerk);
-  if (!location.hash || location.hash === "#/" ) location.hash = "#/d";
+  if (!location.hash || location.hash === "#/") location.hash = "#/d";
   renderRoute();
-  toast("مرحبًا بك، ملفك المهني بانتظارك");
+  toast("مرحبًا بك، ملفك المهني التراكمي جاهز");
 }
 
 function mountUserButton(clerk) {
@@ -940,7 +1143,7 @@ export function start(clerk) {
   clerk.isSignedIn ? enterApp(clerk) : showAuth(clerk);
 }
 
-/* ---------- Popovers ---------- */
+/* ---------- Popovers & Topbar ---------- */
 
 function hidePops() {
   $("#notifPop").hidden = true;
@@ -1012,7 +1215,7 @@ function paintStaticChrome() {
   $("#authBrandMark").innerHTML = brandMark(46);
   $("#authSections").innerHTML = TAXONOMY.map((s, i) => {
     const t = sectionTotals(i);
-    return `<li>${ic(SECTION_ICONS[i], 18)}<b>${s.short}</b><span class="count num">${t.total} خانة مرجعية</span></li>`;
+    return `<li>${ic(SECTION_ICONS[i], 18)}<b>${s.short}</b><span class="count num">${t.total} خانة · ${t.platformCount} وثيقة مرجعية</span></li>`;
   }).join("");
 
   wireTopbar();

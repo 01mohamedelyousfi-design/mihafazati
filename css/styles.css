@@ -1101,3 +1101,127 @@ table.doc-table { width: 100%; border-collapse: collapse; min-width: 640px; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Master Archive & Level Badges ---------- */
+
+.badge-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--r-s);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-tc {
+  background: oklch(0.92 0.04 235);
+  color: oklch(0.36 0.11 235);
+  border: 1px solid oklch(0.84 0.06 235);
+}
+.badge-1bac {
+  background: oklch(0.93 0.05 75);
+  color: oklch(0.42 0.12 75);
+  border: 1px solid oklch(0.85 0.07 75);
+}
+.badge-2bac {
+  background: oklch(0.92 0.05 310);
+  color: oklch(0.4 0.13 310);
+  border: 1px solid oklch(0.84 0.07 310);
+}
+
+.badge-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent-tint);
+  color: var(--accent-hover);
+  border: 1px solid oklch(0.42 0.088 158 / 0.25);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--r-s);
+  white-space: nowrap;
+}
+
+.badge-personal {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--panel);
+  color: var(--ink-soft);
+  border: 1px solid var(--border-strong);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--r-s);
+  white-space: nowrap;
+}
+
+.folder-path-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-s);
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  direction: ltr;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.level-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.level-filter-bar .lbl {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--r-s);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 160ms var(--ease);
+}
+.filter-btn:hover {
+  background: var(--panel);
+  color: var(--ink);
+}
+.filter-btn.active {
+  background: var(--accent);
+  color: oklch(0.985 0.004 95);
+  border-color: var(--accent);
+}
+.filter-btn .badge-cnt {
+  background: rgba(0,0,0,0.08);
+  font-size: 0.6875rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+}
+.filter-btn.active .badge-cnt {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
