@@ -807,11 +807,12 @@ function renderElementPage(main, si, ai, ei) {
   state.expandedAxes.add(`${si}.${ai}`);
 
   const isAsalib = (el.id === "didaktiki.taqwim.asalib" || !!el.evaluationTypes);
+  const isBitaqat = (el.id === "didaktiki.takhtit.bitaqat");
 
   // Level filtering
   const hasLevels = !!(el.levels && el.levels.length) || platformFiles.some(f => f.level);
   let activeFilter = state.currentLevelFilter;
-  if (isAsalib && (activeFilter === "all" || !el.levels.includes(activeFilter))) {
+  if ((isAsalib || isBitaqat) && (activeFilter === "all" || !el.levels.includes(activeFilter))) {
     activeFilter = "جذع مشترك";
     state.currentLevelFilter = "جذع مشترك";
   }
@@ -842,7 +843,7 @@ function renderElementPage(main, si, ai, ei) {
 
   let filterBarHTML = "";
   if (hasLevels) {
-    const levels = isAsalib ? el.levels : ["الكل", "جذع مشترك", "أولى باك", "ثانية باك"];
+    const levels = (isAsalib || isBitaqat) ? el.levels : ["الكل", "جذع مشترك", "أولى باك", "ثانية باك"];
     filterBarHTML = `
       <div class="level-filter-bar" role="toolbar" aria-label="تصفية حسب المستوى الدراسي">
         <span class="lbl">تصفية حسب المستوى:</span>
@@ -907,6 +908,24 @@ function renderElementPage(main, si, ai, ei) {
           </div>
         `).join("")}
       </div>`;
+  } else if (isBitaqat) {
+    const bitaqatSubcats = [
+      { name: "المقررات", desc: "المقررات والمجزوءات والمصوغات المعتمدة للدورة 1 و 2", icon: "book" },
+      { name: "السيرورات", desc: "سيرورات القدرات والمهارات وبناء المفاهيم الفلسفية", icon: "layers" },
+      { name: "الملخصات", desc: "الملخصات التركيبية والموجهات المنهجية للدروس", icon: "fileText" }
+    ];
+    subcatCardsHTML = `
+      <div class="subcat-grid">
+        ${bitaqatSubcats.map(sc => `
+          <div class="subcat-card">
+            <div class="sc-icon">${ic(sc.icon, 18)}</div>
+            <div class="sc-info">
+              <div class="sc-name">${esc(sc.name)}</div>
+              <div class="sc-desc">${esc(sc.desc)}</div>
+            </div>
+          </div>
+        `).join("")}
+      </div>`;
   }
 
   // 1. Platform Reference Fiches Table
@@ -934,9 +953,12 @@ function renderElementPage(main, si, ai, ei) {
     </tr>`;
   }).join("");
 
-  const platformPanelTitle = isAsalib 
-    ? `${ic("sparkle", 18)} بنك نماذج ${activeEvalType === "تشخيصي" ? "التقويم التشخيصي" : activeEvalType === "تكويني" ? "التقويم التكويني" : "التقويم الجزائي"} (${esc(activeFilter)})`
-    : `${ic("sparkle", 18)} وثائق وبطاقات المنهاج المرجعية`;
+  let platformPanelTitle = `${ic("sparkle", 18)} وثائق وبطاقات المنهاج المرجعية`;
+  if (isAsalib) {
+    platformPanelTitle = `${ic("sparkle", 18)} بنك نماذج ${activeEvalType === "تشخيصي" ? "التقويم التشخيصي" : activeEvalType === "تكويني" ? "التقويم التكويني" : "التقويم الجزائي"} (${esc(activeFilter)})`;
+  } else if (isBitaqat) {
+    platformPanelTitle = `${ic("sparkle", 18)} بنك نماذج البطاقات التقنية والتوزيع الدوري (${esc(activeFilter)})`;
+  }
 
   const platformPanel = platformFiles.length ? `
     <section class="panel" style="margin-top:20px;" aria-labelledby="platformT">
@@ -1001,14 +1023,21 @@ function renderElementPage(main, si, ai, ei) {
     </section>`;
 
   // 3. Official Filing Slots Checklist
-  const filteredSlots = isAsalib
-    ? el.slots.map((slot, qi) => ({ slot, qi })).filter(item => {
-        if (activeEvalType === "تشخيصي") return item.slot.includes("التشخيصي");
-        if (activeEvalType === "تكويني") return item.slot.includes("التكويني");
-        if (activeEvalType === "جزائي") return item.slot.includes("الجزائي");
-        return true;
-      })
-    : el.slots.map((slot, qi) => ({ slot, qi }));
+  let filteredSlots = el.slots.map((slot, qi) => ({ slot, qi }));
+  if (isAsalib) {
+    filteredSlots = filteredSlots.filter(item => {
+      if (activeEvalType === "تشخيصي") return item.slot.includes("التشخيصي");
+      if (activeEvalType === "تكويني") return item.slot.includes("التكويني");
+      if (activeEvalType === "جزائي") return item.slot.includes("الجزائي");
+      return true;
+    });
+  } else if (isBitaqat && activeFilter !== "all") {
+    const lvlKey = activeFilter.includes("جذع") ? "TC" : activeFilter.includes("أولى") ? "1BAC" : "2BAC";
+    filteredSlots = filteredSlots.filter(item => {
+      if (item.slot.includes("السيرورة") || item.slot.includes("اللوازم")) return true;
+      return item.slot.includes(lvlKey);
+    });
+  }
 
   const slotRows = filteredSlots.map(({ slot, qi }) => {
     const key = slotKey(si, ai, ei, qi);
