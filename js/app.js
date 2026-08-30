@@ -54,6 +54,7 @@ const state = {
   uploadCtx: null,
   currentFileKey: null,
   currentLevelFilter: "all",
+  currentEvalTypeFilter: "تشخيصي",
   lastFocus: null,
   notifCount: 2
 };
@@ -805,12 +806,35 @@ function renderElementPage(main, si, ai, ei) {
   state.expandedSections.add(si);
   state.expandedAxes.add(`${si}.${ai}`);
 
+  const isAsalib = (el.id === "didaktiki.taqwim.asalib" || !!el.evaluationTypes);
+
   // Level filtering
   const hasLevels = !!(el.levels && el.levels.length) || platformFiles.some(f => f.level);
   let activeFilter = state.currentLevelFilter;
+  if (isAsalib && (activeFilter === "all" || !el.levels.includes(activeFilter))) {
+    activeFilter = "جذع مشترك";
+    state.currentLevelFilter = "جذع مشترك";
+  }
+
+  let activeEvalType = state.currentEvalTypeFilter || "تشخيصي";
+  if (isAsalib && !["تشخيصي", "تكويني", "جزائي"].includes(activeEvalType)) {
+    activeEvalType = "تشخيصي";
+    state.currentEvalTypeFilter = "تشخيصي";
+  }
+
   let displayedPlatformFiles = platformFiles;
   if (activeFilter !== "all") {
     displayedPlatformFiles = platformFiles.filter(f => f.level === activeFilter || (!f.level && activeFilter === "عام"));
+  }
+
+  if (isAsalib) {
+    if (activeEvalType === "تشخيصي") {
+      displayedPlatformFiles = displayedPlatformFiles.filter(f => (f.file_path && f.file_path.includes("1التشخيصي")) || (f.tags && f.tags.includes("تشخيصي")));
+    } else if (activeEvalType === "تكويني") {
+      displayedPlatformFiles = displayedPlatformFiles.filter(f => (f.file_path && f.file_path.includes("2التكويني")) || (f.tags && f.tags.includes("تكويني")));
+    } else if (activeEvalType === "جزائي") {
+      displayedPlatformFiles = displayedPlatformFiles.filter(f => (f.file_path && f.file_path.includes("3الجزائي")) || (f.tags && f.tags.includes("جزائي")));
+    }
   }
 
   const tabs = axis.elements.map((sib, i) =>
@@ -818,7 +842,7 @@ function renderElementPage(main, si, ai, ei) {
 
   let filterBarHTML = "";
   if (hasLevels) {
-    const levels = ["الكل", "جذع مشترك", "أولى باك", "ثانية باك"];
+    const levels = isAsalib ? el.levels : ["الكل", "جذع مشترك", "أولى باك", "ثانية باك"];
     filterBarHTML = `
       <div class="level-filter-bar" role="toolbar" aria-label="تصفية حسب المستوى الدراسي">
         <span class="lbl">تصفية حسب المستوى:</span>
@@ -828,6 +852,60 @@ function renderElementPage(main, si, ai, ei) {
           const cnt = key === "all" ? platformFiles.length : platformFiles.filter(f => f.level === key).length;
           return `<button class="filter-btn ${isActive ? "active" : ""}" data-lvl="${key}">${esc(lvl)} <span class="badge-cnt">${cnt}</span></button>`;
         }).join("")}
+      </div>`;
+  }
+
+  let evalTypeFilterBarHTML = "";
+  let subcatCardsHTML = "";
+  if (isAsalib) {
+    const evalTypes = [
+      { id: "تشخيصي", name: "تقويم تشخيصي", icon: "award", pathKey: "1التشخيصي" },
+      { id: "تكويني", name: "تقويم تكويني", icon: "book", pathKey: "2التكويني" },
+      { id: "جزائي", name: "تقويم جزائي", icon: "shield", pathKey: "3الجزائي" }
+    ];
+
+    evalTypeFilterBarHTML = `
+      <div class="eval-type-filter-bar" role="toolbar" aria-label="تصفية حسب نوع التقويم">
+        <span class="lbl">تصنيف النوع:</span>
+        ${evalTypes.map(t => {
+          const isActive = activeEvalType === t.id;
+          const cnt = platformFiles.filter(f => (activeFilter === "all" || f.level === activeFilter) && ((f.file_path && f.file_path.includes(t.pathKey)) || (f.tags && f.tags.includes(t.id)))).length;
+          return `<button class="filter-btn ${isActive ? "active" : ""}" data-evaltype="${t.id}">${ic(t.icon, 16)} ${t.name} <span class="badge-cnt">${cnt}</span></button>`;
+        }).join("")}
+      </div>`;
+
+    const subcats = {
+      "تشخيصي": [
+        { name: "جذاذة عامة", desc: "التوصيف الديداكتيكي والأهداف التشخيصية", icon: "fileText" },
+        { name: "روائز تشخيصية", desc: "شبكات وروائز قياس المكتسبات القبلية", icon: "award" },
+        { name: "الدعم والمعالجة", desc: "خطة الدعم الاستدراكي وبطاقات التصحيح", icon: "check" }
+      ],
+      "تكويني": [
+        { name: "جذاذة عامة", desc: "جذاذة شاملة للدورة الأولى والدورة الثانية", icon: "fileText" },
+        { name: "تمارين تطبيقية", desc: "بنك التمارين الفلسفية (الدورة 1 و 2)", icon: "pen" },
+        { name: "ورشات تفاعلية", desc: "ورشات العمل والإنتاج الصفي (الدورة 1 و 2)", icon: "sparkle" },
+        { name: "فروض منزلية", desc: "سلاسل الفروض المنزلية وتتبع الإنجاز (الدورة 1 و 2)", icon: "book" },
+        { name: "الدعم والمعالجة", desc: "معالجة الثغرات والأنشطة الداعمة المستمرة", icon: "check" }
+      ],
+      "جزائي": [
+        { name: "جذاذة عامة", desc: "جذاذة شاملة للدورة الأولى والدورة الثانية", icon: "fileText" },
+        { name: "وضعيات اختبارية", desc: "فروض المراقبة المستمرة والامتحانات التجريبية", icon: "shield" },
+        { name: "الدعم والمعالجة", desc: "شبكات التصحيح وخطط المعالجة البعدية", icon: "check" }
+      ]
+    };
+
+    const currentSubcats = subcats[activeEvalType] || [];
+    subcatCardsHTML = `
+      <div class="subcat-grid">
+        ${currentSubcats.map(sc => `
+          <div class="subcat-card">
+            <div class="sc-icon">${ic(sc.icon, 18)}</div>
+            <div class="sc-info">
+              <div class="sc-name">${esc(sc.name)}</div>
+              <div class="sc-desc">${esc(sc.desc)}</div>
+            </div>
+          </div>
+        `).join("")}
       </div>`;
   }
 
@@ -856,16 +934,20 @@ function renderElementPage(main, si, ai, ei) {
     </tr>`;
   }).join("");
 
+  const platformPanelTitle = isAsalib 
+    ? `${ic("sparkle", 18)} بنك نماذج ${activeEvalType === "تشخيصي" ? "التقويم التشخيصي" : activeEvalType === "تكويني" ? "التقويم التكويني" : "التقويم الجزائي"} (${esc(activeFilter)})`
+    : `${ic("sparkle", 18)} وثائق وبطاقات المنهاج المرجعية`;
+
   const platformPanel = platformFiles.length ? `
     <section class="panel" style="margin-top:20px;" aria-labelledby="platformT">
       <div class="panel-head">
-        <h2 class="h3" id="platformT">${ic("sparkle", 18)} وثائق وبطاقات المنهاج المرجعية</h2>
+        <h2 class="h3" id="platformT">${platformPanelTitle}</h2>
         <span class="meta-push caption num">${displayedPlatformFiles.length} وثيقة معتمدة</span>
       </div>
       <div class="table-scroll">
         <table class="doc-table">
           <thead><tr><th scope="col">الوثيقة / البطاقة</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
-          <tbody>${platformRows.length ? platformRows : '<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:24px;">لا توجد وثائق مطابقة للمستوى المحدد</td></tr>'}</tbody>
+          <tbody>${platformRows.length ? platformRows : '<tr><td colspan="5" style="text-align:center;color:var(--ink-faint);padding:24px;">لا توجد وثائق مطابقة للمستوى والنوع المحدد</td></tr>'}</tbody>
         </table>
       </div>
     </section>` : "";
@@ -919,7 +1001,16 @@ function renderElementPage(main, si, ai, ei) {
     </section>`;
 
   // 3. Official Filing Slots Checklist
-  const slotRows = el.slots.map((slot, qi) => {
+  const filteredSlots = isAsalib
+    ? el.slots.map((slot, qi) => ({ slot, qi })).filter(item => {
+        if (activeEvalType === "تشخيصي") return item.slot.includes("التشخيصي");
+        if (activeEvalType === "تكويني") return item.slot.includes("التكويني");
+        if (activeEvalType === "جزائي") return item.slot.includes("الجزائي");
+        return true;
+      })
+    : el.slots.map((slot, qi) => ({ slot, qi }));
+
+  const slotRows = filteredSlots.map(({ slot, qi }) => {
     const key = slotKey(si, ai, ei, qi);
     const f = fileById(key);
     const chip = f ? formatChip(f.name) : null;
@@ -934,6 +1025,15 @@ function renderElementPage(main, si, ai, ei) {
       </span>
     </div>`;
   }).join("");
+
+  const checklistPanel = `
+    <section class="panel" style="margin-top:20px;" aria-labelledby="slotsT">
+      <div class="panel-head">
+        <h2 class="h3" id="slotsT">${ic("check", 18)} الخانات المعتمدة للتفتيش والإيداع</h2>
+        <span class="meta-push caption">${filteredSlots.length} خانات معتمدة</span>
+      </div>
+      <div class="slot-list">${slotRows}</div>
+    </section>`;
 
   main.innerHTML = `
     ${crumb([
@@ -957,7 +1057,10 @@ function renderElementPage(main, si, ai, ei) {
     </div>
     <div class="el-tabs" role="tablist" aria-label="عناصر المحور">${tabs}</div>
     ${filterBarHTML}
+    ${evalTypeFilterBarHTML}
+    ${subcatCardsHTML}
     ${platformPanel}
+    ${checklistPanel}
     ${personalPanel}`;
 
   $$("button[data-tab]", main).forEach(b => b.onclick = () => {
@@ -968,6 +1071,18 @@ function renderElementPage(main, si, ai, ei) {
   $$("button[data-lvl]", main).forEach(b => b.onclick = () => {
     state.currentLevelFilter = b.dataset.lvl;
     renderElementPage(main, si, ai, ei);
+  });
+
+  $$("button[data-evaltype]", main).forEach(b => b.onclick = () => {
+    state.currentEvalTypeFilter = b.dataset.evaltype;
+    renderElementPage(main, si, ai, ei);
+  });
+
+  $$("button[data-open]", main).forEach(btn => {
+    btn.onclick = () => openFileDrawer(btn.dataset.open);
+  });
+  $$("button[data-upslot]", main).forEach(btn => {
+    btn.onclick = () => openUploadDrawer({ si, ai, ei, qi: +btn.dataset.upslot });
   });
 
   $("#elUploadBtn").onclick = () => openUploadDrawer({ si, ai, ei });
@@ -1028,9 +1143,7 @@ function renderElementPage(main, si, ai, ei) {
     });
   });
   $("#elExportBtn").onclick = () => toast("مشاركة تجريبية: سيولَّد رابط للعنصر عند الربط بالخادم");
-
 }
-
 
 /* ---------- View: Settings ---------- */
 
