@@ -1,7 +1,7 @@
 "use strict";
 
-import { loadClerk } from './auth.js';
-import { start, showFatalAuthError } from './app.js';
+import { loadClerk } from './auth.js?v=2.0.0';
+import { start, showFatalAuthError } from './app.js?v=2.0.0';
 
 loadClerk()
   .then(start)
