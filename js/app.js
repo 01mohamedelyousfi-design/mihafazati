@@ -908,59 +908,123 @@ function renderElementPage(main, si, ai, ei) {
           </div>
         `).join("")}
       </div>`;
-  } else if (isBitaqat) {
-    const bitaqatSubcats = [
-      { name: "المقررات", desc: "المقررات والمجزوءات والمصوغات المعتمدة للدورة 1 و 2", icon: "book" },
-      { name: "السيرورات", desc: "سيرورات القدرات والمهارات وبناء المفاهيم الفلسفية", icon: "layers" },
-      { name: "الملخصات", desc: "الملخصات التركيبية والموجهات المنهجية للدروس", icon: "fileText" }
-    ];
-    subcatCardsHTML = `
-      <div class="subcat-grid">
-        ${bitaqatSubcats.map(sc => `
-          <div class="subcat-card">
-            <div class="sc-icon">${ic(sc.icon, 18)}</div>
-            <div class="sc-info">
-              <div class="sc-name">${esc(sc.name)}</div>
-              <div class="sc-desc">${esc(sc.desc)}</div>
-            </div>
-          </div>
-        `).join("")}
-      </div>`;
+  function renderDocRows(docs) {
+    return docs.map(f => {
+      const chip = formatChip(f.name);
+      return `<tr data-pf="${f.id}" tabindex="0">
+        <td>
+          <span class="file-cell">
+            <span class="${chip.cls}">${chip.label}</span>
+            <span style="min-width:0;">
+              <span class="f-name">${esc(f.title || f.name)}</span>
+              <span class="f-note">${esc(f.file_path)}</span>
+            </span>
+          </span>
+        </td>
+        <td><span class="${chip.cls}" title="نوع الملف">${chip.type || chip.label}</span></td>
+        <td>${levelBadge(f.level) || '<span style="color:var(--ink-faint);font-size:.75rem;">مشترك</span>'}</td>
+        <td class="num-cell">${humanSize(f.size)}</td>
+        <td>
+          <span class="row-actions">
+            <button class="btn btn-ghost btn-icon" data-pf-act="preview" data-pf="${f.id}" aria-label="معاينة">${ic("eye", 18)}</button>
+            <button class="btn btn-ghost btn-icon" data-pf-act="dl" data-pf="${f.id}" aria-label="تنزيل">${ic("download", 18)}</button>
+          </span>
+        </td>
+      </tr>`;
+    }).join("");
   }
 
-  // 1. Platform Reference Fiches Table
-  const platformRows = displayedPlatformFiles.map(f => {
-    const chip = formatChip(f.name);
-    return `<tr data-pf="${f.id}" tabindex="0">
-      <td>
-        <span class="file-cell">
-          <span class="${chip.cls}">${chip.label}</span>
-          <span style="min-width:0;">
-            <span class="f-name">${esc(f.title || f.name)}</span>
-            <span class="f-note">${esc(f.file_path)}</span>
-          </span>
+  function renderSlotRows(slotsWithIdx) {
+    return slotsWithIdx.map(({ slot, qi }) => {
+      const key = slotKey(si, ai, ei, qi);
+      const f = fileById(key);
+      const chip = f ? formatChip(f.name) : null;
+      return `<div class="slot-row">
+        <span class="dot ${f ? "dot-full" : "dot-empty"}" role="img" aria-label="${f ? "موثق" : "فارغ"}"></span>
+        <span class="s-name">${esc(slot)}</span>
+        ${f ? `<span class="s-file"><span class="${chip.cls}">${chip.label}</span> ${esc(f.name)}</span>` : ""}
+        <span class="push">
+          ${f
+            ? `<button class="btn btn-ghost btn-sm" data-open="${key}">${ic("eye", 16)} فتح</button>`
+            : `<button class="btn btn-secondary btn-sm" data-upslot="${qi}">${ic("upload", 16)} رفع</button>`}
         </span>
-      </td>
-      <td><span class="${chip.cls}" title="نوع الملف">${chip.type || chip.label}</span></td>
-      <td>${levelBadge(f.level) || '<span style="color:var(--ink-faint);font-size:.75rem;">مشترك</span>'}</td>
-      <td class="num-cell">${humanSize(f.size)}</td>
-      <td>
-        <span class="row-actions">
-          <button class="btn btn-ghost btn-icon" data-pf-act="preview" data-pf="${f.id}" aria-label="معاينة">${ic("eye", 18)}</button>
-          <button class="btn btn-ghost btn-icon" data-pf-act="dl" data-pf="${f.id}" aria-label="تنزيل">${ic("download", 18)}</button>
-        </span>
-      </td>
-    </tr>`;
-  }).join("");
+      </div>`;
+    }).join("");
+  }
+
+  let bitaqatPanelsHTML = "";
+  if (isBitaqat) {
+    const lvlKey = activeFilter.includes("جذع") ? "TC" : activeFilter.includes("أولى") ? "1BAC" : "2BAC";
+    
+    // 1. بطاقة المقررات
+    const moqararatDocs = PLATFORM_FICHES.filter(f => (f.level === activeFilter) && (f.file_path && f.file_path.includes("المقررات")));
+    const moqararatSlots = el.slots.map((slot, qi) => ({ slot, qi })).filter(item => item.slot.includes(lvlKey) && item.slot.includes("المقررات"));
+    
+    // 2. بطاقة السيرورات
+    const sirwaratDocs = PLATFORM_FICHES.filter(f => f.name.includes("السيرورة") || f.name.includes("اللوازم") || (f.file_path && f.file_path.includes("السيرورة")));
+    const sirwaratSlots = el.slots.map((slot, qi) => ({ slot, qi })).filter(item => item.slot.includes("السيرورة") || item.slot.includes("اللوازم") || (item.slot.includes(lvlKey) && item.slot.includes("السيرورات")));
+    
+    // 3. بطاقة الملخصات والتوزيع الدوري
+    const molakhasatDocs = platformFiles.filter(f => (f.level === activeFilter) && (f.name.includes("S½") || (f.file_path && f.file_path.includes("التوزيع الدوري"))));
+    const molakhasatSlots = el.slots.map((slot, qi) => ({ slot, qi })).filter(item => item.slot.includes(lvlKey) && (item.slot.includes("الملخصات") || item.slot.includes("الدورة الكاملة")));
+
+    bitaqatPanelsHTML = `
+      <section class="panel" style="margin-top:20px;" aria-labelledby="moqararatT">
+        <div class="panel-head">
+          <h2 class="h3" id="moqararatT">${ic("book", 18)} بطاقة المقررات والمصوغات (${esc(activeFilter)})</h2>
+          <span class="meta-push caption num">${moqararatDocs.length} نماذج معتمدة · ${moqararatSlots.length} خانات إيداع</span>
+        </div>
+        ${moqararatDocs.length ? `
+        <div class="table-scroll">
+          <table class="doc-table">
+            <thead><tr><th scope="col">الوثيقة / النموذج المرجعي</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
+            <tbody>${renderDocRows(moqararatDocs)}</tbody>
+          </table>
+        </div>` : ""}
+        <div class="slot-list">${renderSlotRows(moqararatSlots)}</div>
+      </section>
+
+      <section class="panel" style="margin-top:20px;" aria-labelledby="sirwaratT">
+        <div class="panel-head">
+          <h2 class="h3" id="sirwaratT">${ic("layers", 18)} بطاقة السيرورات والبطاقات التقنية (${esc(activeFilter)})</h2>
+          <span class="meta-push caption num">${sirwaratDocs.length} نماذج معتمدة · ${sirwaratSlots.length} خانات إيداع</span>
+        </div>
+        ${sirwaratDocs.length ? `
+        <div class="table-scroll">
+          <table class="doc-table">
+            <thead><tr><th scope="col">الوثيقة / النموذج المرجعي</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
+            <tbody>${renderDocRows(sirwaratDocs)}</tbody>
+          </table>
+        </div>` : ""}
+        <div class="slot-list">${renderSlotRows(sirwaratSlots)}</div>
+      </section>
+
+      <section class="panel" style="margin-top:20px;" aria-labelledby="molakhasatT">
+        <div class="panel-head">
+          <h2 class="h3" id="molakhasatT">${ic("fileText", 18)} بطاقة الملخصات والتوزيع الدوري (${esc(activeFilter)})</h2>
+          <span class="meta-push caption num">${molakhasatDocs.length} نماذج معتمدة · ${molakhasatSlots.length} خانات إيداع</span>
+        </div>
+        ${molakhasatDocs.length ? `
+        <div class="table-scroll">
+          <table class="doc-table">
+            <thead><tr><th scope="col">الوثيقة / النموذج المرجعي</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
+            <tbody>${renderDocRows(molakhasatDocs)}</tbody>
+          </table>
+        </div>` : ""}
+        <div class="slot-list">${renderSlotRows(molakhasatSlots)}</div>
+      </section>
+    `;
+  }
+
+  // 1. Platform Reference Fiches Table (for non-bitaqat elements)
+  const platformRows = renderDocRows(displayedPlatformFiles);
 
   let platformPanelTitle = `${ic("sparkle", 18)} وثائق وبطاقات المنهاج المرجعية`;
   if (isAsalib) {
     platformPanelTitle = `${ic("sparkle", 18)} بنك نماذج ${activeEvalType === "تشخيصي" ? "التقويم التشخيصي" : activeEvalType === "تكويني" ? "التقويم التكويني" : "التقويم الجزائي"} (${esc(activeFilter)})`;
-  } else if (isBitaqat) {
-    platformPanelTitle = `${ic("sparkle", 18)} بنك نماذج البطاقات التقنية والتوزيع الدوري (${esc(activeFilter)})`;
   }
 
-  const platformPanel = platformFiles.length ? `
+  const platformPanel = (!isBitaqat && platformFiles.length) ? `
     <section class="panel" style="margin-top:20px;" aria-labelledby="platformT">
       <div class="panel-head">
         <h2 class="h3" id="platformT">${platformPanelTitle}</h2>
@@ -1022,7 +1086,7 @@ function renderElementPage(main, si, ai, ei) {
       </div>
     </section>`;
 
-  // 3. Official Filing Slots Checklist
+  // 3. Official Filing Slots Checklist (for non-bitaqat elements)
   let filteredSlots = el.slots.map((slot, qi) => ({ slot, qi }));
   if (isAsalib) {
     filteredSlots = filteredSlots.filter(item => {
@@ -1031,38 +1095,18 @@ function renderElementPage(main, si, ai, ei) {
       if (activeEvalType === "جزائي") return item.slot.includes("الجزائي");
       return true;
     });
-  } else if (isBitaqat && activeFilter !== "all") {
-    const lvlKey = activeFilter.includes("جذع") ? "TC" : activeFilter.includes("أولى") ? "1BAC" : "2BAC";
-    filteredSlots = filteredSlots.filter(item => {
-      if (item.slot.includes("السيرورة") || item.slot.includes("اللوازم")) return true;
-      return item.slot.includes(lvlKey);
-    });
   }
 
-  const slotRows = filteredSlots.map(({ slot, qi }) => {
-    const key = slotKey(si, ai, ei, qi);
-    const f = fileById(key);
-    const chip = f ? formatChip(f.name) : null;
-    return `<div class="slot-row">
-      <span class="dot ${f ? "dot-full" : "dot-empty"}" role="img" aria-label="${f ? "موثق" : "فارغ"}"></span>
-      <span class="s-name">${esc(slot)}</span>
-      ${f ? `<span class="s-file"><span class="${chip.cls}">${chip.label}</span> ${esc(f.name)}</span>` : ""}
-      <span class="push">
-        ${f
-          ? `<button class="btn btn-ghost btn-sm" data-open="${key}">${ic("eye", 16)} فتح</button>`
-          : `<button class="btn btn-secondary btn-sm" data-upslot="${qi}">${ic("upload", 16)} رفع</button>`}
-      </span>
-    </div>`;
-  }).join("");
+  const slotRows = renderSlotRows(filteredSlots);
 
-  const checklistPanel = `
+  const checklistPanel = (!isBitaqat) ? `
     <section class="panel" style="margin-top:20px;" aria-labelledby="slotsT">
       <div class="panel-head">
         <h2 class="h3" id="slotsT">${ic("check", 18)} الخانات المعتمدة للتفتيش والإيداع</h2>
         <span class="meta-push caption">${filteredSlots.length} خانات معتمدة</span>
       </div>
       <div class="slot-list">${slotRows}</div>
-    </section>`;
+    </section>` : "";
 
   main.innerHTML = `
     ${crumb([
@@ -1088,8 +1132,7 @@ function renderElementPage(main, si, ai, ei) {
     ${filterBarHTML}
     ${evalTypeFilterBarHTML}
     ${subcatCardsHTML}
-    ${platformPanel}
-    ${checklistPanel}
+    ${isBitaqat ? bitaqatPanelsHTML : `${platformPanel}${checklistPanel}`}
     ${personalPanel}`;
 
   $$("button[data-tab]", main).forEach(b => b.onclick = () => {
