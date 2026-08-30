@@ -323,18 +323,26 @@ function axisTotals(si, ai) {
   return { total, filled, platformCount };
 }
 
-let FILES = [
-  { key: slotKey(0, 0, 0, 0), name: "القانون الأساسي للمؤسسات التعليمية.pdf", size: 1.8e6, added: new Date(2026, 2, 3), note: "نسخة محينة من الجريدة الرسمية", scope: "personal" },
-  { key: slotKey(0, 0, 0, 1), name: "النظام الأساسي للوظيفة العمومية.pdf", size: 2.1e6, added: new Date(2026, 2, 3), note: "النظام الأساسي العام رقم 1.58.008", scope: "personal" },
-  { key: slotKey(0, 0, 2, 0), name: "ميثاق أخلاقيات المهنة.pdf", size: 1.1e6, added: new Date(2026, 4, 11), note: "الميثاق التربوي والأخلاقي", scope: "personal" },
-  { key: slotKey(0, 1, 0, 5), name: "قرار التعيين بالمؤسسة.pdf", size: 4.2e5, added: new Date(2025, 8, 5), note: "المديرية الإقليمية", scope: "personal" },
-  { key: slotKey(0, 1, 1, 0), name: "ملف الترقية بالأقدمية.pdf", size: 1.1e6, added: new Date(2026, 5, 15), note: "بحاجة إلى تحديث الشهادات", scope: "personal" },
-  { key: slotKey(0, 2, 0, 0), name: "المقرر الوزاري لتنظيم السنة الدراسية 2026-2027.pdf", size: 3.4e6, added: new Date(2026, 6, 10), note: "المقرر الرسمي", scope: "personal" },
-  { key: slotKey(0, 2, 0, 5), name: "جدول الحصص الأسبوعي.xlsx", size: 9.2e4, added: new Date(2025, 8, 7), note: "معتمد من طرف الإدارة", scope: "personal" },
-  { key: slotKey(1, 0, 0, 0), name: "التوجيهات التربوية لمادة الفلسفة.pdf", size: 4.2e6, added: new Date(2026, 0, 15), note: "النسخة الرسمية للوزارة", scope: "personal" },
-  { key: slotKey(1, 0, 1, 2), name: "التوزيع الدوري، الجذع المشترك S1.docx", size: 1.1e5, added: new Date(2025, 8, 14), note: "التوزيع السنوي والدوري المعتمد", scope: "personal" },
-  { key: slotKey(1, 2, 0, 1), name: "الإطار المرجعي للامتحان الوطني المحين.pdf", size: 1.8e6, added: new Date(2026, 0, 9), note: "الإطار المرجعي المحين مادة الفلسفة", scope: "personal" }
-];
+let FILES = (function loadInitialFiles() {
+  try {
+    if (typeof localStorage !== "undefined") {
+      const raw = localStorage.getItem("mihafazati_personal_files");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return parsed.map(f => Object.assign({}, f, { added: new Date(f.added) }));
+      }
+    }
+  } catch (_) {}
+  return [];
+})();
+
+function savePersonalFiles() {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("mihafazati_personal_files", JSON.stringify(FILES));
+    }
+  } catch (_) {}
+}
 
 const FORMAT_FAMILIES = [
   { id: "pdf", label: "PDF", test: /\\.pdf$/i },
@@ -354,15 +362,15 @@ function familyLabel(id) {
 
 function formatChip(name) {
   const m = /\\.([a-z0-9]+)$/i.exec(name);
-  if (!m) return { label: "ملف", cls: "chip" };
+  if (!m) return { label: "ملف", cls: "chip", type: "مستند", icon: "fileText" };
   const ext = m[1].toLowerCase();
-  if (ext === "pdf") return { label: "PDF", cls: "chip chip-pdf" };
-  if (["doc", "docx"].includes(ext)) return { label: "DOC", cls: "chip chip-doc" };
-  if (["xls", "xlsx"].includes(ext)) return { label: "XLS", cls: "chip chip-xls" };
-  if (["ppt", "pptx"].includes(ext)) return { label: "PPT", cls: "chip chip-ppt" };
-  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return { label: "IMG", cls: "chip chip-img" };
-  if (["mp4", "mov", "avi", "mkv"].includes(ext)) return { label: "VID", cls: "chip chip-vid" };
-  return { label: ext.toUpperCase(), cls: "chip" };
+  if (ext === "pdf") return { label: "PDF", cls: "chip chip-pdf", type: "مستند PDF", icon: "fileText" };
+  if (["doc", "docx"].includes(ext)) return { label: "Word", cls: "chip chip-doc", type: "مستند Word", icon: "fileText" };
+  if (["xls", "xlsx"].includes(ext)) return { label: "Excel", cls: "chip chip-xls", type: "جدول Excel", icon: "table" };
+  if (["ppt", "pptx"].includes(ext)) return { label: "PowerPoint", cls: "chip chip-ppt", type: "عرض PowerPoint", icon: "slides" };
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return { label: "صورة", cls: "chip chip-img", type: "ملف صورة", icon: "image" };
+  if (["mp4", "mov", "avi", "mkv"].includes(ext)) return { label: "فيديو", cls: "chip chip-vid", type: "مقطع فيديو", icon: "video" };
+  return { label: ext.toUpperCase(), cls: "chip", type: "ملف " + ext.toUpperCase(), icon: "fileText" };
 }
 
 function humanSize(bytes) {

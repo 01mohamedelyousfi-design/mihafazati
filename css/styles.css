@@ -147,15 +147,48 @@ h3, .h3 { font-size: 1.0625rem; font-weight: 600; }
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.1rem 0.45rem;
+  gap: 4px;
+  padding: 0.15rem 0.55rem;
   border-radius: var(--r-s);
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--ink-soft);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chip-pdf {
+  background: oklch(0.95 0.04 25);
+  color: oklch(0.46 0.19 25);
+  border-color: oklch(0.85 0.08 25);
+}
+.chip-doc, .chip-word {
+  background: oklch(0.94 0.04 240);
+  color: oklch(0.40 0.16 240);
+  border-color: oklch(0.84 0.08 240);
+}
+.chip-xls, .chip-excel {
+  background: oklch(0.94 0.05 145);
+  color: oklch(0.38 0.15 145);
+  border-color: oklch(0.83 0.09 145);
+}
+.chip-ppt, .chip-powerpoint {
+  background: oklch(0.94 0.05 55);
+  color: oklch(0.45 0.16 55);
+  border-color: oklch(0.85 0.09 55);
+}
+.chip-img {
+  background: oklch(0.94 0.04 290);
+  color: oklch(0.42 0.15 290);
+  border-color: oklch(0.84 0.08 290);
+}
+.chip-vid {
+  background: oklch(0.94 0.04 190);
+  color: oklch(0.40 0.13 190);
+  border-color: oklch(0.84 0.07 190);
 }
 
 .tag {

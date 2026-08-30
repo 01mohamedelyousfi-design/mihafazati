@@ -177,16 +177,25 @@ function openFileDrawer(key) {
   const [secName, axisName, elName, slotName] = pathLabels(key);
   const chip = formatChip(f.name);
   const fam = fileFamily(f.name);
-  const previewHint = fam === "media"
-    ? `${ic("video", 26)}<span>معاينة الوسائط غير متاحة في النموذج الأولي</span>`
-    : `${ic("eye", 26)}<span>المعاينة الكاملة متاحة بعد الربط بالخادم</span>`;
+
+  // Preview box: show image inline, PDF link, or type hint
+  let previewBox = "";
+  if (fam === "media" && /\.(jpe?g|png|gif|webp)$/i.test(f.name) && f.url) {
+    previewBox = `<div class="preview-box" style="padding:0;overflow:hidden;"><img src="${f.url}" alt="${esc(f.name)}" style="max-width:100%;border-radius:4px;"></div>`;
+  } else if (fam === "pdf" && f.url) {
+    previewBox = `<div class="preview-box"><a href="${f.url}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">${ic("fileText", 24)} اضغط لفتح المستند في لسان جديد</a></div>`;
+  } else {
+    const icon = chip.icon || "fileText";
+    previewBox = `<div class="preview-box">${ic(icon, 28)}<span>معاينة ${chip.type || chip.label} ستيتوفر بعد الربط بالخادم</span></div>`;
+  }
+
   const body = `
     <div class="file-hero">
       <div class="fh-icon">${ic(familyIcon(f.name), 26)}</div>
       <div>
         <h3>${esc(f.name)}</h3>
-        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
-          <span class="${chip.cls}">${chip.label}</span>
+        <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span class="${chip.cls}">${chip.type || chip.label}</span>
           <span class="badge-personal">مستند شخصي</span>
         </div>
       </div>
@@ -200,14 +209,13 @@ function openFileDrawer(key) {
       <div><dt>تاريخ الإضافة</dt><dd class="num">${formatDate(f.added)}</dd></div>
       <div><dt>ملاحظة</dt><dd>${f.note ? esc(f.note) : '<span style="color:var(--ink-faint);">لا توجد</span>'}</dd></div>
     </dl>
-    <div class="preview-box">${previewHint}</div>
+    ${previewBox}
     <div class="share-box">
       <label class="caption" for="shareLink">رابط المشاركة للمفتش(ة)</label>
       <div class="share-row">
         <input class="input" id="shareLink" readonly value="https://mahfazati.ma/f/${encodeURIComponent(f.name.slice(0, 8))}">
         <button class="btn btn-secondary btn-icon" id="copyLinkBtn" aria-label="نسخ الرابط" title="نسخ الرابط">${ic("copy")}</button>
       </div>
-      <label class="switch"><input type="checkbox" checked><span class="track"></span><span class="switch-label">يتطلب رمز وصول</span></label>
     </div>
     <div class="drawer-actions">
       <button class="btn btn-primary" id="dlBtn">${ic("download", 18)} تنزيل المستند</button>
@@ -218,10 +226,19 @@ function openFileDrawer(key) {
   $("#copyLinkBtn").onclick = () => {
     const inp = $("#shareLink");
     inp.select();
-    try { document.execCommand("copy"); } catch (_) { /* prototype */ }
+    try { document.execCommand("copy"); } catch (_) { /* noop */ }
     toast("تم نسخ رابط المشاركة");
   };
-  $("#dlBtn").onclick = () => toast("تنزيل تجريبي: سيعمل بعد الربط بالخادم");
+  $("#dlBtn").onclick = () => {
+    if (f.url) {
+      const a = document.createElement("a");
+      a.href = f.url;
+      a.download = f.name;
+      a.click();
+    } else {
+      toast("التنزيل سيُفعَّل بعد الربط بالخادم");
+    }
+  };
   const delBtn = $("#delBtn");
   delBtn.onclick = () => {
     if (delBtn.dataset.armed) {
@@ -243,12 +260,22 @@ function openPlatformFicheDrawer(id) {
   const f = platformFicheById(id);
   if (!f) return;
   const res = getElementById(f.element_id);
-  const secName = res ? res.section.name : "القسم الديداكتيكي";
+  const secName = res ? res.section.name : "القسم الديدكتيكي";
   const axisName = res ? res.axis.name : "تخطيط التعلمات";
   const elName = res ? res.element.name : "الوثائق التربوية";
   const chip = formatChip(f.name);
 
   const tagsHTML = (f.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join(" ");
+
+  // Determine if file is previewable directly
+  const isPDF = /\.pdf$/i.test(f.name);
+  const isImage = /\.(jpe?g|png|gif|webp)$/i.test(f.name);
+  let previewBody = `<div class="preview-box">${ic(chip.icon || "fileText", 28)}<span>وثيقة ${chip.type || chip.label} جاهزة للتحميل والاستثمار الصفي.</span></div>`;
+  if (isPDF && f.url) {
+    previewBody = `<div class="preview-box"><a href="${f.url}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">${ic("fileText", 24)} اضغط لفتح الوثيقة في لسان جديد</a></div>`;
+  } else if (isImage && f.url) {
+    previewBody = `<div class="preview-box" style="padding:0;"><img src="${f.url}" alt="${esc(f.name)}" style="max-width:100%;"></div>`;
+  }
 
   const body = `
     <div class="file-hero">
@@ -256,8 +283,7 @@ function openPlatformFicheDrawer(id) {
       <div>
         <h3>${esc(f.title || f.name)}</h3>
         <div style="margin-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <span class="${chip.cls}">${chip.label}</span>
-          <span class="badge-platform">وثيقة المنهاج الرسمية</span>
+          <span class="${chip.cls}">${chip.type || chip.label}</span>
           ${levelBadge(f.level)}
         </div>
       </div>
@@ -270,20 +296,26 @@ function openPlatformFicheDrawer(id) {
       <div><dt>المحور</dt><dd>${esc(axisName)}</dd></div>
       <div><dt>العنصر</dt><dd>${esc(elName)}</dd></div>
       <div><dt>المستوى المستهدف</dt><dd>${f.level ? esc(f.level) : "عام / كافة المستويات"}</dd></div>
-      <div><dt>الحجم المرجعي</dt><dd class="num">${humanSize(f.size)}</dd></div>
+      <div><dt>الحجم</dt><dd class="num">${humanSize(f.size)}</dd></div>
       <div><dt>الوسوم والتصنيف</dt><dd>${tagsHTML || '<span style="color:var(--ink-faint);">بدون وسوم</span>'}</dd></div>
     </dl>
-    <div class="preview-box">
-      ${ic("fileText", 28)}
-      <span>وثيقة نموذجية رسمية جاهزة للاستثمار الصفي والتنزيل كقالب مرجعي.</span>
-    </div>
+    ${previewBody}
     <div class="drawer-actions">
       <button class="btn btn-primary" id="dlPfBtn">${ic("download", 18)} تحميل النموذج المعتمد</button>
       <button class="btn btn-secondary" id="useTemplateBtn">${ic("upload", 18)} تعبئة ورفع نسختي الشخصية</button>
     </div>`;
-  openDrawer("بطاقة ووثيقة المنهاج الرسمية", body);
+  openDrawer("بيانات الوثيقة الرسمية", body);
 
-  $("#dlPfBtn").onclick = () => toast(`جارٍ تحميل: ${f.name}`);
+  $("#dlPfBtn").onclick = () => {
+    if (f.url) {
+      const a = document.createElement("a");
+      a.href = f.url;
+      a.download = f.name;
+      a.click();
+    } else {
+      toast(`جارٍ تحميل: ${f.name}`);
+    }
+  };
   $("#useTemplateBtn").onclick = () => {
     closeDrawer();
     if (res) openUploadDrawer({ si: res.si, ai: res.ai, ei: res.ei });
@@ -812,13 +844,13 @@ function renderElementPage(main, si, ai, ei) {
           </span>
         </span>
       </td>
-      <td><span class="badge-platform">منهاج رسمي</span></td>
+      <td><span class="${chip.cls}" title="نوع الملف">${chip.type || chip.label}</span></td>
       <td>${levelBadge(f.level) || '<span style="color:var(--ink-faint);font-size:.75rem;">مشترك</span>'}</td>
       <td class="num-cell">${humanSize(f.size)}</td>
       <td>
         <span class="row-actions">
-          <button class="btn btn-ghost btn-icon" data-pf-act="open" data-pf="${f.id}" aria-label="معاينة">${ic("eye", 18)}</button>
-          <button class="btn btn-ghost btn-icon" data-pf-act="dl" data-pf="${f.id}" aria-label="تنزيل النموذج">${ic("download", 18)}</button>
+          <button class="btn btn-ghost btn-icon" data-pf-act="preview" data-pf="${f.id}" aria-label="معاينة">${ic("eye", 18)}</button>
+          <button class="btn btn-ghost btn-icon" data-pf-act="dl" data-pf="${f.id}" aria-label="تنزيل">${ic("download", 18)}</button>
         </span>
       </td>
     </tr>`;
@@ -852,13 +884,13 @@ function renderElementPage(main, si, ai, ei) {
           </span>
         </span>
       </td>
-      <td class="num-cell">${esc(el.slots[slotIdx] || "غير محدد")}</td>
+      <td><span class="${chip.cls}" title="نوع الملف">${chip.type || chip.label}</span></td>
       <td class="num-cell">${humanSize(f.size)}</td>
       <td class="num-cell">${formatDate(f.added)}</td>
       <td>
         <span class="row-actions">
-          <button class="btn btn-ghost btn-icon" data-act="open" data-file="${f.key}" aria-label="فتح">${ic("eye", 18)}</button>
-          <button class="btn btn-ghost btn-icon" data-act="dl" aria-label="تنزيل">${ic("download", 18)}</button>
+          <button class="btn btn-ghost btn-icon" data-act="preview" data-file="${f.key}" aria-label="معاينة">${ic("eye", 18)}</button>
+          <button class="btn btn-ghost btn-icon" data-act="dl" data-file="${f.key}" aria-label="تنزيل">${ic("download", 18)}</button>
           <button class="btn btn-ghost btn-icon" data-act="share" data-file="${f.key}" aria-label="مشاركة">${ic("share", 18)}</button>
         </span>
       </td>
@@ -926,14 +958,7 @@ function renderElementPage(main, si, ai, ei) {
     <div class="el-tabs" role="tablist" aria-label="عناصر المحور">${tabs}</div>
     ${filterBarHTML}
     ${platformPanel}
-    ${personalPanel}
-    <section class="panel" style="margin-top:24px;" aria-labelledby="slotsT">
-      <div class="panel-head">
-        <h2 class="h3" id="slotsT">خانات التفتيش والمطابقة الوزارية</h2>
-        <span class="meta-push caption num">${c.filled}/${c.total} موثقة</span>
-      </div>
-      <div class="slot-list">${slotRows}</div>
-    </section>`;
+    ${personalPanel}`;
 
   $$("button[data-tab]", main).forEach(b => b.onclick = () => {
     state.currentLevelFilter = "all";
@@ -948,36 +973,64 @@ function renderElementPage(main, si, ai, ei) {
   $("#elUploadBtn").onclick = () => openUploadDrawer({ si, ai, ei });
   const eb = $("#emptyUploadBtn");
   if (eb) eb.onclick = () => openUploadDrawer({ si, ai, ei });
-  $("#elExportBtn").onclick = () => toast("مشاركة تجريبية: سيولَّد رابط للعنصر عند الربط بالخادم");
 
-  // Platform fiches clicks
+  // Platform fiche actions
+  $$("button[data-pf-act]", main).forEach(btn => {
+    const id = btn.dataset.pf;
+    const act = btn.dataset.pfAct;
+    btn.onclick = e => {
+      e.stopPropagation();
+      const fiche = platformFicheById(id);
+      if (!fiche) return;
+      if (act === "preview") openPlatformFicheDrawer(id);
+      if (act === "dl") {
+        toast(`جارٍ تنزيل: ${fiche.name}`);
+        const a = document.createElement("a");
+        a.href = fiche.file_path || "#";
+        a.download = fiche.name;
+        a.click();
+      }
+    };
+  });
+
+  // Personal file row actions
+  $$("button[data-act]", main).forEach(btn => {
+    const key = btn.dataset.file;
+    const act = btn.dataset.act;
+    btn.onclick = e => {
+      e.stopPropagation();
+      if (act === "preview" || act === "open") openFileDrawer(key);
+      if (act === "dl") {
+        const f = fileById(key);
+        if (!f) return;
+        toast(`جارٍ تنزيل: ${f.name}`);
+        if (f.url) {
+          const a = document.createElement("a");
+          a.href = f.url;
+          a.download = f.name;
+          a.click();
+        } else {
+          toast("التنزيل سيُفعَّل بعد الربط بالخادم");
+        }
+      }
+      if (act === "share") openFileDrawer(key);
+    };
+  });
+
   $$("tr[data-pf]", main).forEach(tr => {
     tr.addEventListener("click", e => {
-      if (e.target.closest("button")) return;
-      openPlatformFicheDrawer(tr.dataset.pf);
+      if (!e.target.closest("button")) openPlatformFicheDrawer(tr.dataset.pf);
     });
-    tr.addEventListener("keydown", e => { if (e.key === "Enter") openPlatformFicheDrawer(tr.dataset.pf); });
   });
-  $$("button[data-pf-act='open']", main).forEach(b => b.onclick = () => openPlatformFicheDrawer(b.dataset.pf));
-  $$("button[data-pf-act='dl']", main).forEach(b => b.onclick = () => {
-    const f = platformFicheById(b.dataset.pf);
-    toast(`جارٍ تنزيل: ${f ? f.name : "النموذج"}`);
-  });
-
-  // Personal files clicks
   $$("tr[data-file]", main).forEach(tr => {
     tr.addEventListener("click", e => {
-      if (e.target.closest("button")) return;
-      openFileDrawer(tr.dataset.file);
+      if (!e.target.closest("button")) openFileDrawer(tr.dataset.file);
     });
-    tr.addEventListener("keydown", e => { if (e.key === "Enter") openFileDrawer(tr.dataset.file); });
   });
-  $$("button[data-open]", main).forEach(b => b.onclick = () => openFileDrawer(b.dataset.open));
-  $$("button[data-upslot]", main).forEach(b => b.onclick = () => openUploadDrawer({ si, ai, ei, qi: +b.dataset.upslot }));
-  $$("button[data-act='dl']", main).forEach(b => b.onclick = () => toast("تنزيل تجريبي: سيعمل بعد الربط بالخادم"));
-  $$("button[data-act='share']", main).forEach(b => b.onclick = () => openFileDrawer(b.dataset.file));
-  $$("button[data-act='open']", main).forEach(b => b.onclick = () => openFileDrawer(b.dataset.file));
+  $("#elExportBtn").onclick = () => toast("مشاركة تجريبية: سيولَّد رابط للعنصر عند الربط بالخادم");
+
 }
+
 
 /* ---------- View: Settings ---------- */
 
