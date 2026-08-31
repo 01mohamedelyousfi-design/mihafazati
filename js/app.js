@@ -954,6 +954,30 @@ function renderElementPage(main, si, ai, ei) {
     }).join("");
   }
 
+  function renderReferencePanel(panelId, iconName, title, docs, slotsWithIdx, emptyMessage = "لا توجد وثائق مطابقة لهذا التصنيف حاليًا") {
+    const rows = renderDocRows(docs);
+    const slotList = renderSlotRows(slotsWithIdx);
+    return `
+      <section class="panel" style="margin-top:20px;" aria-labelledby="${panelId}">
+        <div class="panel-head">
+          <h2 class="h3" id="${panelId}">${ic(iconName, 18)} ${title}</h2>
+          <span class="meta-push caption num">${docs.length} نماذج معتمدة · ${slotsWithIdx.length} خانات إيداع</span>
+        </div>
+        ${docs.length ? `
+        <div class="table-scroll">
+          <table class="doc-table">
+            <thead><tr><th scope="col">الوثيقة / النموذج المرجعي</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>` : `
+        <div class="empty-state" style="padding:24px;">
+          ${ic(iconName, 28)}
+          <p>${emptyMessage}</p>
+        </div>`}
+        <div class="slot-list">${slotList}</div>
+      </section>`;
+  }
+
   let bitaqatPanelsHTML = "";
   if (isBitaqat) {
     const lvlKey = activeFilter.includes("جذع") ? "TC" : activeFilter.includes("أولى") ? "1BAC" : "2BAC";
@@ -971,51 +995,110 @@ function renderElementPage(main, si, ai, ei) {
     const molakhasatSlots = el.slots.map((slot, qi) => ({ slot, qi })).filter(item => item.slot.includes(lvlKey) && (item.slot.includes("الملخصات") || item.slot.includes("الدورة الكاملة")));
 
     bitaqatPanelsHTML = `
-      <section class="panel" style="margin-top:20px;" aria-labelledby="moqararatT">
-        <div class="panel-head">
-          <h2 class="h3" id="moqararatT">${ic("book", 18)} بطاقة المقررات والمصوغات (${esc(activeFilter)})</h2>
-          <span class="meta-push caption num">${moqararatDocs.length} نماذج معتمدة · ${moqararatSlots.length} خانات إيداع</span>
-        </div>
-        ${moqararatDocs.length ? `
-        <div class="table-scroll">
-          <table class="doc-table">
-            <thead><tr><th scope="col">الوثيقة / النموذج المرجعي</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
-            <tbody>${renderDocRows(moqararatDocs)}</tbody>
-          </table>
-        </div>` : ""}
-        <div class="slot-list">${renderSlotRows(moqararatSlots)}</div>
-      </section>
-
-      <section class="panel" style="margin-top:20px;" aria-labelledby="sirwaratT">
-        <div class="panel-head">
-          <h2 class="h3" id="sirwaratT">${ic("layers", 18)} بطاقة السيرورات والبطاقات التقنية (${esc(activeFilter)})</h2>
-          <span class="meta-push caption num">${sirwaratDocs.length} نماذج معتمدة · ${sirwaratSlots.length} خانات إيداع</span>
-        </div>
-        ${sirwaratDocs.length ? `
-        <div class="table-scroll">
-          <table class="doc-table">
-            <thead><tr><th scope="col">الوثيقة / النموذج المرجعي</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
-            <tbody>${renderDocRows(sirwaratDocs)}</tbody>
-          </table>
-        </div>` : ""}
-        <div class="slot-list">${renderSlotRows(sirwaratSlots)}</div>
-      </section>
-
-      <section class="panel" style="margin-top:20px;" aria-labelledby="molakhasatT">
-        <div class="panel-head">
-          <h2 class="h3" id="molakhasatT">${ic("fileText", 18)} بطاقة الملخصات والتوزيع الدوري (${esc(activeFilter)})</h2>
-          <span class="meta-push caption num">${molakhasatDocs.length} نماذج معتمدة · ${molakhasatSlots.length} خانات إيداع</span>
-        </div>
-        ${molakhasatDocs.length ? `
-        <div class="table-scroll">
-          <table class="doc-table">
-            <thead><tr><th scope="col">الوثيقة / النموذج المرجعي</th><th scope="col">النوع</th><th scope="col">المستوى</th><th scope="col">الحجم</th><th scope="col"><span style="position:absolute;clip-path:inset(50%);">إجراءات</span></th></tr></thead>
-            <tbody>${renderDocRows(molakhasatDocs)}</tbody>
-          </table>
-        </div>` : ""}
-        <div class="slot-list">${renderSlotRows(molakhasatSlots)}</div>
-      </section>
+      ${renderReferencePanel("moqararatT", "book", `بطاقة المقررات والمصوغات (${esc(activeFilter)})`, moqararatDocs, moqararatSlots)}
+      ${renderReferencePanel("sirwaratT", "layers", `بطاقة السيرورات والبطاقات التقنية (${esc(activeFilter)})`, sirwaratDocs, sirwaratSlots)}
+      ${renderReferencePanel("molakhasatT", "fileText", `بطاقة الملخصات والتوزيع الدوري (${esc(activeFilter)})`, molakhasatDocs, molakhasatSlots)}
     `;
+  }
+
+  let asalibPanelsHTML = "";
+  if (isAsalib) {
+    const filteredSlots = el.slots.map((slot, qi) => ({ slot, qi })).filter(item => {
+      if (activeEvalType === "تشخيصي") return item.slot.includes("التشخيصي");
+      if (activeEvalType === "تكويني") return item.slot.includes("التكويني");
+      if (activeEvalType === "جزائي") return item.slot.includes("الإجمالي");
+      return true;
+    });
+    const hasDocPath = (doc, segment) => doc.file_path && doc.file_path.includes(segment);
+    const panelConfigs = {
+      "تشخيصي": [
+        {
+          id: "tashkhisiGeneralT",
+          icon: "fileText",
+          title: `جذاذة عامة (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => !hasDocPath(doc, "\\2الروائز\\") && !hasDocPath(doc, "\\3الدعم والمعالجة\\")),
+          slots: filteredSlots
+        },
+        {
+          id: "tashkhisiRawaizT",
+          icon: "award",
+          title: `روائز تشخيصية (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => hasDocPath(doc, "\\2الروائز\\")),
+          slots: filteredSlots
+        },
+        {
+          id: "tashkhisiSupportT",
+          icon: "check",
+          title: `الدعم والمعالجة (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => hasDocPath(doc, "\\3الدعم والمعالجة\\")),
+          slots: el.slots.map((slot, qi) => ({ slot, qi })).filter(item => item.slot.includes("الدعم والمعالجة"))
+        }
+      ],
+      "تكويني": [
+        {
+          id: "takwiniGeneralT",
+          icon: "fileText",
+          title: `جذاذة عامة (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => !hasDocPath(doc, "\\1التمرين الفلسفي\\") && !hasDocPath(doc, "\\2الفرض المنزلي\\")),
+          slots: filteredSlots
+        },
+        {
+          id: "takwiniTamrinT",
+          icon: "pen",
+          title: `تمارين تطبيقية (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => hasDocPath(doc, "\\1التمرين الفلسفي\\")),
+          slots: filteredSlots
+        },
+        {
+          id: "takwiniWarashatT",
+          icon: "sparkle",
+          title: `ورشات تفاعلية (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => hasDocPath(doc, "\\ورشات\\")),
+          slots: filteredSlots
+        },
+        {
+          id: "takwiniHomeworkT",
+          icon: "book",
+          title: `فروض منزلية (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => hasDocPath(doc, "\\2الفرض المنزلي\\")),
+          slots: filteredSlots
+        },
+        {
+          id: "takwiniSupportT",
+          icon: "check",
+          title: `الدعم والمعالجة (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => hasDocPath(doc, "\\3الدعم والمعالجة\\")),
+          slots: el.slots.map((slot, qi) => ({ slot, qi })).filter(item => item.slot.includes("الدعم والمعالجة"))
+        }
+      ],
+      "جزائي": [
+        {
+          id: "jazaiGeneralT",
+          icon: "fileText",
+          title: `جذاذة عامة (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => !hasDocPath(doc, "\\2الوضعيات\\") && !hasDocPath(doc, "\\2الوضعيات الاختبارية\\") && !hasDocPath(doc, "\\3الدعم والمعالجة\\")),
+          slots: filteredSlots
+        },
+        {
+          id: "jazaiSituationsT",
+          icon: "shield",
+          title: `وضعيات اختبارية (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => hasDocPath(doc, "\\2الوضعيات\\") || hasDocPath(doc, "\\2الوضعيات الاختبارية\\")),
+          slots: filteredSlots
+        },
+        {
+          id: "jazaiSupportT",
+          icon: "check",
+          title: `الدعم والمعالجة (${esc(activeFilter)})`,
+          docs: displayedPlatformFiles.filter(doc => hasDocPath(doc, "\\3الدعم والمعالجة\\")),
+          slots: el.slots.map((slot, qi) => ({ slot, qi })).filter(item => item.slot.includes("الدعم والمعالجة"))
+        }
+      ]
+    };
+
+    asalibPanelsHTML = (panelConfigs[activeEvalType] || []).map(panel =>
+      renderReferencePanel(panel.id, panel.icon, panel.title, panel.docs, panel.slots)
+    ).join("");
   }
 
   // 1. Platform Reference Fiches Table (for non-bitaqat elements)
@@ -1094,7 +1177,7 @@ function renderElementPage(main, si, ai, ei) {
     filteredSlots = filteredSlots.filter(item => {
       if (activeEvalType === "تشخيصي") return item.slot.includes("التشخيصي");
       if (activeEvalType === "تكويني") return item.slot.includes("التكويني");
-      if (activeEvalType === "جزائي") return item.slot.includes("الجزائي");
+      if (activeEvalType === "جزائي") return item.slot.includes("الإجمالي");
       return true;
     });
   }
@@ -1133,8 +1216,8 @@ function renderElementPage(main, si, ai, ei) {
     <div class="el-tabs" role="tablist" aria-label="عناصر المحور">${tabs}</div>
     ${filterBarHTML}
     ${evalTypeFilterBarHTML}
-    ${subcatCardsHTML}
-    ${isBitaqat ? bitaqatPanelsHTML : `${platformPanel}${checklistPanel}`}
+    ${isAsalib ? asalibPanelsHTML : subcatCardsHTML}
+    ${isBitaqat ? bitaqatPanelsHTML : isAsalib ? "" : `${platformPanel}${checklistPanel}`}
     ${personalPanel}`;
 
   $$("button[data-tab]", main).forEach(b => b.onclick = () => {
