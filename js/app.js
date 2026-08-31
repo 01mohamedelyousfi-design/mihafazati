@@ -908,6 +908,8 @@ function renderElementPage(main, si, ai, ei) {
           </div>
         `).join("")}
       </div>`;
+  }
+
   function renderDocRows(docs) {
     return docs.map(f => {
       const chip = formatChip(f.name);
